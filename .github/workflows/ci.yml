@@ -24,6 +24,6 @@ jobs:
 
       - name: Build Client
         run: |
-          cd ../client
+          cd client
           cl /EHsc client.cpp
         shell: cmd
