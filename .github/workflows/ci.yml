@@ -1,0 +1,29 @@
+name: C++ CI
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Build Server
+        run: |
+          cd server
+          cl /EHsc server.cpp
+        shell: cmd
+
+      - name: Build Client
+        run: |
+          cd client
+          cl /EHsc client.cpp
+        shell: cmd
