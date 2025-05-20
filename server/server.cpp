@@ -1,20 +1,61 @@
-// server.cpp : This file contains the 'main' function. Program execution begins and ends there.
-//
-
 #include <iostream>
+#include <chrono>
+#include <thread>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include "../include/packet.hpp"
 
-int main()
-{
-    std::cout << "Hello World!\n";
+#pragma comment(lib, "Ws2_32.lib")
+
+int main() {
+    WSADATA wsa;
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
+        std::cerr << "WSAStartup failed\n";
+        return 1;
+    }
+
+    SOCKET sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (sock == INVALID_SOCKET) {
+        std::cerr << "socket() failed\n";
+        return 1;
+    }
+
+    sockaddr_in servAddr{};
+    servAddr.sin_family = AF_INET;
+    inet_pton(AF_INET, "127.0.0.1", &servAddr.sin_addr);
+    servAddr.sin_port = htons(54000);
+
+    uint32_t seq = 0;
+    float x = 0, y = 0;
+
+    char buf[Packet::size()];
+    sockaddr_in fromAddr;
+    int fromSize = sizeof(fromAddr);
+
+    while (true) {
+
+        float dt = 0.1f;
+        float vx = 1.0f, vy = 0.0f;
+        x += vx * dt;
+
+        Packet p{ seq++, x, y, vx, vy };
+        p.serialize(buf);
+        sendto(sock, buf, Packet::size(), 0,
+            (sockaddr*)&servAddr, sizeof(servAddr));
+
+        int bytes = recvfrom(sock, buf, Packet::size(), 0,
+            (sockaddr*)&fromAddr, &fromSize);
+        if (bytes == Packet::size()) {
+            Packet p2;
+            p2.deserialize(buf);
+            std::cout << "Echo seq=" << p2.seq
+                << " x=" << p2.x << " y=" << p2.y << "\n";
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    closesocket(sock);
+    WSACleanup();
+    return 0;
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file
