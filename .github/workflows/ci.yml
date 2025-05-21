@@ -16,14 +16,9 @@ jobs:
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
-      - name: Build Server
-        run: |
-          cd server
-          cl /EHsc server.cpp
+      - name: Build Solution
+        run: msbuild netcode-demo.sln /p:Configuration=Debug
         shell: cmd
 
-      - name: Build Client
-        run: |
-          cd client
-          cl /EHsc client.cpp
-        shell: cmd
+
+      

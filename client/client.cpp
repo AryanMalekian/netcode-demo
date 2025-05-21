@@ -3,12 +3,14 @@
  * @brief UDP client for netcode demo project.
  *
  * Sends a simulated moving object's state to the server via UDP.
- * Receives and prints echoed packets from the server.
+ * Receives and prints echoed packets, applies prediction, and prints both
+ * actual and predicted positions each frame.
  *
  * Demonstrates:
  * - Use of Winsock for UDP sockets
  * - Use of the shared Packet struct for network data
  * - Simple network loop for real-time applications
+ * - Client-side prediction via separate module (prediction.hpp/ .cpp)
  *
  * @author Aryan Malekian
  * @date 20.05.2025
@@ -20,6 +22,7 @@
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "../include/packet.hpp"
+#include "../include/prediction.hpp"
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -49,43 +52,59 @@ int main() {
     uint32_t seq = 0;
     float x = 0, y = 0;
 
-    // (5) Buffers for sending/receiving
+    // (5) Remote state & timestamp for prediction
+    Packet remote{};  // last known remote state
+    auto lastRecvTime = std::chrono::steady_clock::now();
+
+    // (6) Buffers for sending/receiving
     char buf[Packet::size()];
     sockaddr_in fromAddr;
     int fromSize = sizeof(fromAddr);
 
-    // (6) Main loop: send packet every 100ms, print echo from server
+    // (7) Main loop: send packet, receive, predict
     while (true) {
-        // Simulate motion: move right at 1 unit/sec
-        float dt = 0.1f;
+        // 7a) Simulate local motion: move right at 1 unit/sec
+        float dt = 0.1f;    // 100 ms per tick
         float vx = 1.0f, vy = 0.0f;
         x += vx * dt;
 
-        // Create and serialize packet
+        // 7b) Serialize & send packet
         Packet p{ seq++, x, y, vx, vy };
         p.serialize(buf);
-
-        // Send packet to server
         sendto(sock, buf, Packet::size(), 0,
             (sockaddr*)&servAddr, sizeof(servAddr));
 
-        // Receive echoed packet from server
+        // 7c) Receive echoed packet
         int bytes = recvfrom(sock, buf, Packet::size(), 0,
             (sockaddr*)&fromAddr, &fromSize);
-
-        // If valid, print out the echoed packet
         if (bytes == Packet::size()) {
-            Packet p2;
-            p2.deserialize(buf);
-            std::cout << "Echo seq=" << p2.seq
-                << " x=" << p2.x << " y=" << p2.y << "\n";
+            remote.deserialize(buf);  // update remote state
+            lastRecvTime = std::chrono::steady_clock::now();
+
+            
+            std::cout << "Remote actual=("
+                << remote.x << ", " << remote.y
+                << ") seq=" << remote.seq << "\n";
         }
 
-        // Sleep for 100 ms
+        // 7d) Predict remote position now
+        auto now = std::chrono::steady_clock::now();
+        std::chrono::duration<float> elapsed = now - lastRecvTime;
+
+        // manual unpack instead of structured binding, because for some reason my copmiler doesn't let me do it automatically
+        std::pair<float, float> predicted = predictPosition(remote, elapsed.count());
+        float predX = predicted.first;
+        float predY = predicted.second;
+
+        std::cout << "Predicted pos=("
+            << predX << ", " << predY
+            << ") after " << elapsed.count() << "s\n";
+
+        // 7e) Wait next tick
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // (7) Cleanup
+    // (8) Cleanup
     closesocket(sock);
     WSACleanup();
     return 0;
