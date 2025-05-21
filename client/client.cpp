@@ -5,7 +5,7 @@
  * Sends a simulated moving object's state to the server via UDP.
  * Receives and prints echoed packets, applies prediction, and prints both
  * actual, predicted, and interpolated positions each frame. Visualizes all four
- * dots in a horizontal row behind the local dot for a “snake” effect.
+ * dots in a horizontal row behind the local dot for a “snake” effect, to better display the interplay in action.
  *
  * Demonstrates:
  * - Use of Winsock for UDP sockets
@@ -13,7 +13,7 @@
  * - Simple network loop for real-time applications
  * - Client-side prediction via separate module (prediction.hpp/.cpp)
  * - Client-side interpolation via separate module (interpolation.hpp/.cpp)
- * - Minimal graphics demo using SFML (A-grade requirement)
+ * - Minimal graphics demo using SFML 
  *
  * @author Aryan Malekian
  * @date 20.05.2025
@@ -33,7 +33,6 @@
 #include <SFML/Graphics.hpp>
 
 #pragma comment(lib, "Ws2_32.lib")
- // With vcpkg, SFML is linked automatically if your project uses the vcpkg toolchain file
 
 int main() {
     // (1) Initialize Winsock API
