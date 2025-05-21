@@ -4,13 +4,15 @@
  *
  * Sends a simulated moving object's state to the server via UDP.
  * Receives and prints echoed packets, applies prediction, and prints both
- * actual and predicted positions each frame. Visualizes all three.
+ * actual, predicted, and interpolated positions each frame. Visualizes all four
+ * dots in a horizontal row behind the local dot for a “snake” effect.
  *
  * Demonstrates:
  * - Use of Winsock for UDP sockets
  * - Use of the shared Packet struct for network data
  * - Simple network loop for real-time applications
- * - Client-side prediction via separate module (prediction.hpp/ .cpp)
+ * - Client-side prediction via separate module (prediction.hpp/.cpp)
+ * - Client-side interpolation via separate module (interpolation.hpp/.cpp)
  * - Minimal graphics demo using SFML (A-grade requirement)
  *
  * @author Aryan Malekian
@@ -21,6 +23,7 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <cmath>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "../include/packet.hpp"
@@ -81,6 +84,8 @@ int main() {
     sf::CircleShape predictedDot(10.f);  predictedDot.setFillColor(sf::Color::Blue);
     sf::CircleShape interpDot(10.f);     interpDot.setFillColor(sf::Color(255, 165, 0)); // Orange
 
+    constexpr float SPACING = 30.f;  // pixels between each dot
+
     // (8) Main loop: send packet, receive, predict, interpolate, draw
     while (window.isOpen()) {
         // a) SFML event handling
@@ -123,7 +128,7 @@ int main() {
                 << ") seq=" << nextPacket.seq << "\n";
         }
         else if (bytes == -1 && WSAGetLastError() == WSAEWOULDBLOCK) {
-            // no data available, just continue
+            // no data available
         }
         else if (bytes == -1) {
             std::cerr << "Socket error: " << WSAGetLastError() << "\n";
@@ -132,7 +137,7 @@ int main() {
         // e) Prediction: where do we think it is now?
         auto now = std::chrono::steady_clock::now();
         std::chrono::duration<float> elapsed = now - nextRecvTime;
-        std::pair<float, float> predicted = predictPosition(nextPacket, elapsed.count());
+        auto predicted = predictPosition(nextPacket, elapsed.count());
         float predX = predicted.first;
         float predY = predicted.second;
 
@@ -145,20 +150,28 @@ int main() {
         if (hasPrev) {
             std::chrono::duration<float> interval = nextRecvTime - prevRecvTime;
             std::chrono::duration<float> sinceNext = now - nextRecvTime;
-            float t = (interval.count() > 0.0001f) ? (sinceNext.count() / interval.count()) : 0.f;
-            if (t < 0.f) t = 0.f;
-            if (t > 1.f) t = 1.f;
+            float t = (interval.count() > 0.0001f)
+                ? (sinceNext.count() / interval.count())
+                : 0.f;
+            t = std::clamp(t, 0.f, 1.f);
             auto interp = interpolatePosition(prevPacket, nextPacket, t);
             interpX = interp.first;
             interpY = interp.second;
         }
 
-        // g) SFML visual: draw local (green), remote (red), predicted (blue), interpolated (orange)
+        // g) Compute horizontal positions for each dot
+        sf::Vector2f basePos{ x, y };
+        sf::Vector2f remotePos = basePos + sf::Vector2f(-SPACING, 0.f);
+        sf::Vector2f predictedPos = basePos + sf::Vector2f(-2 * SPACING, 0.f);
+        sf::Vector2f interpPos = basePos + sf::Vector2f(-3 * SPACING, 0.f);
+
+        // h) SFML visual: draw local (green), remote (red),
+        //               predicted (blue), interpolated (orange)
         window.clear(sf::Color::Black);
-        localDot.setPosition(x, y);
-        remoteDot.setPosition(nextPacket.x, nextPacket.y);
-        predictedDot.setPosition(predX, predY);
-        interpDot.setPosition(interpX, interpY);
+        localDot.setPosition(basePos);
+        remoteDot.setPosition(remotePos);
+        predictedDot.setPosition(predictedPos);
+        interpDot.setPosition(interpPos);
 
         window.draw(localDot);
         window.draw(remoteDot);
@@ -166,7 +179,7 @@ int main() {
         if (hasPrev) window.draw(interpDot);
         window.display();
 
-        // h) Wait next tick
+        // i) Wait next tick
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
