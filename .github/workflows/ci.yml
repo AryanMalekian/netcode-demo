@@ -25,5 +25,5 @@ jobs:
       - name: Build Client
         run: |
           cd client
-          cl /EHsc client.cpp
+          cl /EHsc client.cpp ..\include\prediction.cpp /I..\include
         shell: cmd
