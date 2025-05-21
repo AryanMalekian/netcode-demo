@@ -1,35 +1,29 @@
 /**
  * @file prediction.hpp
- * @brief Client-side prediction routines for netcode demo.
+ * @brief Client-side prediction interface for the netcode demo.
  *
- * Provides a simple extrapolation function that,
- * given the last known state (position + velocity) and elapsed time,
- * returns the predicted position.
- *
- * This is separated for clarity and unit-testing.
+ * Declares a function to predict an object’s position given its
+ * last known state (position + velocity) and elapsed time.
+ * This separation makes prediction logic testable and reusable.
  *
  * @author Aryan Malekian
- * @date 21.05.2025
+ * @date 2025-05-21
  */
 
 #pragma once
 
 #include "packet.hpp"
-#include <utility>    
-#include <cstdint>
+#include <utility>  // for std::pair
 
  /**
-  * @brief Predicts the new position of an object given its last state.
+  * @brief Predicts where an object will be after a time delta.
   *
-  * Uses linear extrapolation:
+  * Uses simple linear extrapolation:
   *   predictedX = pkt.x + pkt.vx * dt
   *   predictedY = pkt.y + pkt.vy * dt
   *
-  * @param pkt Last received Packet containing x, y, vx, vy
-  * @param dt  Time elapsed since pkt was received (in seconds)
-  * @return    A std::pair<float,float> = (predictedX, predictedY)
+  * @param pkt Last received Packet containing position (x,y) and velocity (vx,vy).
+  * @param dt  Time elapsed since pkt was received (in seconds).
+  * @return    A std::pair<float,float> = (predictedX, predictedY).
   */
-inline std::pair<float, float> predictPosition(const Packet& pkt, float dt) {
-    return { pkt.x + pkt.vx * dt,
-             pkt.y + pkt.vy * dt };
-}
+std::pair<float, float> predictPosition(const Packet& pkt, float dt);
