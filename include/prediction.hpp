@@ -7,7 +7,7 @@
  * This separation makes prediction logic testable and reusable.
  *
  * @author Aryan Malekian
- * @date 2025-05-21
+ * @date 21.05.2025
  */
 
 #pragma once
