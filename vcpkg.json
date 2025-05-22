@@ -2,9 +2,6 @@
     "name": "netcode-demo",
     "version-string": "0.1.0",
     "dependencies": [
-        {
-            "name": "sfml",
-            "features": [ "graphics", "window", "system" ]
-        }
+        "sfml"
     ]
 }
