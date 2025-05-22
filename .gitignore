@@ -1,0 +1,97 @@
+# --- General OS ---
+.DS_Store
+Thumbs.db
+
+# --- CMake & Ninja & Make ---
+/build/
+/bin/
+/out/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+*.cmake
+*.cbp
+
+# --- vcpkg artifacts ---
+vcpkg_installed/
+vcpkg_buildtrees/
+vcpkg_downloads/
+vcpkg_packages/
+
+# --- Compiled objects & temp files ---
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.lib
+*.a
+*.exp
+*.pdb
+*.ilk
+*.ipdb
+*.tlog
+*.idb
+*.manifest
+
+# --- Visual Studio/Windows compiler output ---
+*.exe
+*.vcxproj*
+*.vcproj*
+*.sln*
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.cachefile
+*.log
+*.suo
+*.user
+*.rsuser
+*.dbmdl
+*.pfx
+*.psess
+*.vsp
+*.vspx
+
+# --- VS user data, cache, and misc ---
+.vs/
+*.tss
+*.vshistory/
+*.localhistory/
+*.code-workspace
+
+# --- Clion/JetBrains ---
+.idea/
+cmake-build-*/
+
+# --- Test, benchmark, or coverage results ---
+/Testing/
+/test-output/
+/test-results/
+*.coverage*
+*.gcda
+*.gcno
+*.gcov
+*.profraw
+*.profdata
+
+# --- Node & Python (just in case) ---
+node_modules/
+__pycache__/
+*.pyc
+
+# --- Editor project files ---
+*.iml
+
+# --- VCPKG/3rdparty binary dumps ---
+/*.nupkg
+/*.snupkg
+
+# --- VSCode workspace except settings/tasks/launch/extensions ---
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
