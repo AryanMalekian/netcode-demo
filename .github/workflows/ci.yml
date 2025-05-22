@@ -13,6 +13,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Cache vcpkg installed
+        uses: actions/cache@v3
+        with:
+          path: C:/vcpkg/installed
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('**/vcpkg.json') }}
+          restore-keys: |
+            ${{ runner.os }}-vcpkg-
+
       - name: Set up MSVC
         uses: ilammy/msvc-dev-cmd@v1
 
@@ -22,8 +30,8 @@ jobs:
           vcpkgJsonGlob: '**/vcpkg.json'
           runVcpkgInstall: true
           cleanAfterBuild: true
-          useVcpkgCache: false 
+          useVcpkgCache: true
 
-      - name: Build Solution
-        run: msbuild netcode-demo.sln /p:Configuration=Debug /p:VcpkgEnableManifest=true
+      - name: Build Solution (parallel)
+        run: msbuild netcode-demo.sln /m /p:CL_MPCount=8 /p:Configuration=Debug /p:VcpkgEnableManifest=true
         shell: cmd
