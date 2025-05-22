@@ -1,30 +1,36 @@
-/**
+﻿/**
  * @file client.cpp
- * @brief UDP client for netcode demo project.
+ * @brief UDP client for netcode demo project, with SFML visual demo.
  *
  * Sends a simulated moving object's state to the server via UDP.
  * Receives and prints echoed packets, applies prediction, and prints both
- * actual, predicted, and interpolated positions each frame.
+ * actual, predicted, and interpolated positions each frame. Visualizes all four
+ * dots in a horizontal row behind the local dot for a “snake” effect, to better display the interplay in action.
  *
  * Demonstrates:
  * - Use of Winsock for UDP sockets
  * - Use of the shared Packet struct for network data
  * - Simple network loop for real-time applications
- * - Client-side prediction via separate module (prediction.hpp/ .cpp)
- * - Client-side interpolation via separate module (interpolation.hpp/ .cpp)
+ * - Client-side prediction via separate module (prediction.hpp/.cpp)
+ * - Client-side interpolation via separate module (interpolation.hpp/.cpp)
+ * - Minimal graphics demo using SFML
  *
  * @author Aryan Malekian
  * @date 20.05.2025
  */
 
+#define NOMINMAX
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <cmath>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include "../include/packet.hpp"
 #include "../include/prediction.hpp"
 #include "../include/interpolation.hpp"
+
+#include <SFML/Graphics.hpp>
 
 #pragma comment(lib, "Ws2_32.lib")
 
@@ -44,6 +50,10 @@ int main() {
         return 1;
     }
 
+    // Make socket non-blocking (Windows only)
+    u_long mode = 1;
+    ioctlsocket(sock, FIONBIO, &mode);
+
     // (3) Prepare server address (localhost:54000)
     sockaddr_in servAddr{};
     servAddr.sin_family = AF_INET;
@@ -52,84 +62,127 @@ int main() {
 
     // (4) Simulation state
     uint32_t seq = 0;
-    float x = 0, y = 0;
+    float x = 100, y = 200; // Start at (100, 200) for visuals
 
-    // (5) Packet buffers & timestamps for prediction & interpolation
-    Packet prevPacket{};                                // earlier state
-    Packet nextPacket{};                                // latest state
-    bool hasPrev = false;                               // true once we have two packets
+    // (5) Prediction/interpolation buffers and timestamps
+    Packet prevPacket{}, nextPacket{};
+    bool hasPrev = false;
     auto prevRecvTime = std::chrono::steady_clock::now();
     auto nextRecvTime = std::chrono::steady_clock::now();
 
     // (6) Buffers for sending/receiving
     char buf[Packet::size()];
     sockaddr_in fromAddr;
-    int fromSize = sizeof(fromAddr);
+    socklen_t fromSize = sizeof(fromAddr);
 
-    // (7) Main loop: send packet, receive, predict & interpolate
-    while (true) {
-        // 7a) Simulate local motion: move right at 1 unit/sec
+    // (7) SFML setup
+    sf::RenderWindow window(sf::VideoMode(800, 600), "Netcode Demo Visual");
+    window.setFramerateLimit(60);
+    sf::CircleShape localDot(10.f);      localDot.setFillColor(sf::Color::Green);
+    sf::CircleShape remoteDot(10.f);     remoteDot.setFillColor(sf::Color::Red);
+    sf::CircleShape predictedDot(10.f);  predictedDot.setFillColor(sf::Color::Blue);
+    sf::CircleShape interpDot(10.f);     interpDot.setFillColor(sf::Color(255, 165, 0)); // Orange
+
+    constexpr float SPACING = 30.f;  // pixels between each dot
+
+    // (8) Main loop: send packet, receive, predict, interpolate, draw
+    while (window.isOpen()) {
+        // a) SFML event handling
+        sf::Event event;
+        while (window.pollEvent(event)) {
+            if (event.type == sf::Event::Closed)
+                window.close();
+        }
+
+        // b) Simulate local motion (arrow keys)
         float dt = 0.1f;    // 100 ms per tick
-        float vx = 1.0f, vy = 0.0f;
+        float vx = 0.0f, vy = 0.0f;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))  vx = 120.0f;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))   vx = -120.0f;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))   vy = 120.0f;
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))     vy = -120.0f;
         x += vx * dt;
+        y += vy * dt;
 
-        // 7b) Serialize & send packet
+        // c) Serialize & send packet
         Packet p{ seq++, x, y, vx, vy };
         p.serialize(buf);
-        sendto(sock, buf, Packet::size(), 0,
+        sendto(sock, buf, static_cast<int>(Packet::size()), 0,
             (sockaddr*)&servAddr, sizeof(servAddr));
 
-        // 7c) Receive echoed packet
-        int bytes = recvfrom(sock, buf, Packet::size(), 0,
+        // d) Receive echoed packet (non-blocking)
+        int bytes = recvfrom(sock, buf, static_cast<int>(Packet::size()), 0,
             (sockaddr*)&fromAddr, &fromSize);
-        if (bytes == Packet::size()) {
-            // shift the buffer: latest becomes previous
+        if (bytes == static_cast<int>(Packet::size())) {
+            // Shift old -> prev, curr -> next
             prevPacket = nextPacket;
             prevRecvTime = nextRecvTime;
 
-            // deserialize into nextPacket
             nextPacket.deserialize(buf);
             nextRecvTime = std::chrono::steady_clock::now();
             hasPrev = true;
 
-            // Print actual remote state
             std::cout << "Remote actual=("
                 << nextPacket.x << ", " << nextPacket.y
                 << ") seq=" << nextPacket.seq << "\n";
         }
+        else if (bytes == -1 && WSAGetLastError() == WSAEWOULDBLOCK) {
+            // no data available
+        }
+        else if (bytes == -1) {
+            std::cerr << "Socket error: " << WSAGetLastError() << "\n";
+        }
 
-        // 7d) Prediction: where we think it is now
+        // e) Prediction: where do we think it is now?
         auto now = std::chrono::steady_clock::now();
         std::chrono::duration<float> elapsed = now - nextRecvTime;
         auto predicted = predictPosition(nextPacket, elapsed.count());
         float predX = predicted.first;
         float predY = predicted.second;
+
         std::cout << "Predicted pos=("
             << predX << ", " << predY
             << ") after " << elapsed.count() << "s\n";
 
-        // 7e) Interpolation: smooth between prevPacket and nextPacket
+        // f) Interpolation: smooth between prevPacket and nextPacket
+        float interpX = nextPacket.x, interpY = nextPacket.y;
         if (hasPrev) {
-            // total interval between packets
             std::chrono::duration<float> interval = nextRecvTime - prevRecvTime;
-            // how far past the latest packet timestamp
-            std::chrono::duration<float> past = now - nextRecvTime;
-            // choose a small interpolation delay (e.g., 100ms) if desired, here zero:
-            float t = past.count() / interval.count();
-            if (t < 0.f) t = 0.f;
-            if (t > 1.f) t = 1.f;
-
+            std::chrono::duration<float> sinceNext = now - nextRecvTime;
+            float t = (interval.count() > 0.0001f)
+                ? (sinceNext.count() / interval.count())
+                : 0.f;
+            t = std::clamp(t, 0.f, 1.f);
             auto interp = interpolatePosition(prevPacket, nextPacket, t);
-            std::cout << "Interpolated pos=("
-                << interp.first << ", " << interp.second
-                << ") t=" << t << "\n";
+            interpX = interp.first;
+            interpY = interp.second;
         }
 
-        // 7f) Wait next tick
+        // g) Compute horizontal positions for each dot
+        sf::Vector2f basePos{ x, y };
+        sf::Vector2f remotePos = basePos + sf::Vector2f(-SPACING, 0.f);
+        sf::Vector2f predictedPos = basePos + sf::Vector2f(-2 * SPACING, 0.f);
+        sf::Vector2f interpPos = basePos + sf::Vector2f(-3 * SPACING, 0.f);
+
+        // h) SFML visual: draw local (green), remote (red),
+        //               predicted (blue), interpolated (orange)
+        window.clear(sf::Color::Black);
+        localDot.setPosition(basePos);
+        remoteDot.setPosition(remotePos);
+        predictedDot.setPosition(predictedPos);
+        interpDot.setPosition(interpPos);
+
+        window.draw(localDot);
+        window.draw(remoteDot);
+        window.draw(predictedDot);
+        if (hasPrev) window.draw(interpDot);
+        window.display();
+
+        // i) Wait next tick
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    // (8) Cleanup
+    // (9) Cleanup
     closesocket(sock);
     WSACleanup();
     return 0;
