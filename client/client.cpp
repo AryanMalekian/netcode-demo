@@ -13,7 +13,7 @@
  * - Simple network loop for real-time applications
  * - Client-side prediction via separate module (prediction.hpp/.cpp)
  * - Client-side interpolation via separate module (interpolation.hpp/.cpp)
- * - Minimal graphics demo using SFML 
+ * - Minimal graphics demo using SFML
  *
  * @author Aryan Malekian
  * @date 20.05.2025
@@ -73,7 +73,7 @@ int main() {
     // (6) Buffers for sending/receiving
     char buf[Packet::size()];
     sockaddr_in fromAddr;
-    int fromSize = sizeof(fromAddr);
+    socklen_t fromSize = sizeof(fromAddr);
 
     // (7) SFML setup
     sf::RenderWindow window(sf::VideoMode(800, 600), "Netcode Demo Visual");
@@ -107,13 +107,13 @@ int main() {
         // c) Serialize & send packet
         Packet p{ seq++, x, y, vx, vy };
         p.serialize(buf);
-        sendto(sock, buf, Packet::size(), 0,
+        sendto(sock, buf, static_cast<int>(Packet::size()), 0,
             (sockaddr*)&servAddr, sizeof(servAddr));
 
         // d) Receive echoed packet (non-blocking)
-        int bytes = recvfrom(sock, buf, Packet::size(), 0,
+        int bytes = recvfrom(sock, buf, static_cast<int>(Packet::size()), 0,
             (sockaddr*)&fromAddr, &fromSize);
-        if (bytes == Packet::size()) {
+        if (bytes == static_cast<int>(Packet::size())) {
             // Shift old -> prev, curr -> next
             prevPacket = nextPacket;
             prevRecvTime = nextRecvTime;

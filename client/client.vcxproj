@@ -74,6 +74,9 @@
     <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);C:\Users\aryma\Documents\netcode-demo\vcpkg_installed\x64-windows\include</IncludePath>
     <LibraryPath>$(VC_LibraryPath_x64);$(WindowsSDK_LibraryPath_x64);C:\Users\aryma\Documents\netcode-demo\vcpkg_installed\x64-windows\lib</LibraryPath>
   </PropertyGroup>
+  <PropertyGroup Label="Vcpkg">
+    <VcpkgEnableManifest>true</VcpkgEnableManifest>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
