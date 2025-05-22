@@ -21,10 +21,9 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{54d2a035-1227-4854-8a7f-03a4bfd653a3}</ProjectGuid>
-    <RootNamespace>PacketTests</RootNamespace>
+    <ProjectGuid>{45db18d1-b2ca-4523-98b3-90ef7f4205b1}</ProjectGuid>
+    <RootNamespace>clientTests</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>tests</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -133,8 +132,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="interpolationTests.cpp" />
-    <ClCompile Include="packetTests.cpp" />
+    <ClCompile Include="clientTests.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
