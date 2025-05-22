@@ -9,7 +9,7 @@
  *   - Zero buffer behavior
  *   - Static size checks
  *
- * All tests follow the documentation and code style standards established in this project.
+ * 
  *
  * @author Aryan Malekian
  * @date 22.05.2025
@@ -20,7 +20,7 @@
 #define CATCH_CONFIG_RUNNER
 #include <catch2/catch_all.hpp>
 #include "../../include/packet.hpp"
-#include <cstring>  // For std::memcmp
+#include <cstring>  
 
 int main(int argc, char* argv[]) {
     return Catch::Session().run(argc, argv);
