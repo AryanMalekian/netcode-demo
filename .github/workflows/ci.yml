@@ -20,6 +20,9 @@ jobs:
         uses: lukka/run-vcpkg@v11
         with:
           vcpkgJsonGlob: '**/vcpkg.json'
+          runVcpkgInstall: true
+          cleanAfterBuild: true
+          useVcpkgCache: false 
 
       - name: Build Solution
         run: msbuild netcode-demo.sln /p:Configuration=Debug /p:VcpkgEnableManifest=true
