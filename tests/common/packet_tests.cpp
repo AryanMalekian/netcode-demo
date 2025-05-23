@@ -39,4 +39,36 @@ TEST_CASE("Packet serialization/deserialization - roundtrip", "[Packet]") {
     REQUIRE(result.vy == Catch::Approx(original.vy));
 }
 
+TEST_CASE("Packet serialization uses network byte order for seq", "[Packet]") {
+    Packet pkt;
+    pkt.seq = 0x01020304;
+    pkt.x = pkt.y = pkt.vx = pkt.vy = 0.0f;
 
+    char buf[Packet::size()] = {};
+    pkt.serialize(buf);
+
+    REQUIRE(static_cast<unsigned char>(buf[0]) == 0x01);
+    REQUIRE(static_cast<unsigned char>(buf[1]) == 0x02);
+    REQUIRE(static_cast<unsigned char>(buf[2]) == 0x03);
+    REQUIRE(static_cast<unsigned char>(buf[3]) == 0x04);
+
+    Packet deserialized;
+    deserialized.deserialize(buf);
+    REQUIRE(deserialized.seq == 0x01020304);
+}
+
+TEST_CASE("Packet deserialization from zero buffer yields zeroes", "[Packet]") {
+    char buf[Packet::size()] = {};
+    Packet pkt;
+    pkt.deserialize(buf);
+
+    REQUIRE(pkt.seq == 0);
+    REQUIRE(pkt.x == Catch::Approx(0.0f));
+    REQUIRE(pkt.y == Catch::Approx(0.0f));
+    REQUIRE(pkt.vx == Catch::Approx(0.0f));
+    REQUIRE(pkt.vy == Catch::Approx(0.0f));
+}
+
+TEST_CASE("Packet::size() is correct", "[Packet]") {
+    REQUIRE(Packet::size() == sizeof(uint32_t) + 4 * sizeof(float));
+}
