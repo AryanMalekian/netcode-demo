@@ -1,4 +1,4 @@
-name: Build (CMake + vcpkg on Windows)
+name: CI Pipeline
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
 
 jobs:
   build:
+    name: Build
     runs-on: windows-latest
     
     steps:
@@ -51,20 +52,43 @@ jobs:
         run: |
           cmake --build build --config Release
           
-      - name: Run Tests
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts
+          path: |
+            build/
+          retention-days: 1
+
+  test:
+    name: Test
+    runs-on: windows-latest
+    needs: build
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-artifacts
+          path: build/
+          
+      - name: Run Tests (CTest)
         run: |
           ctest --test-dir build --output-on-failure --verbose
           
-      - name: Run Tests (Alternative - Direct Executable)
+      - name: Run Tests (Direct Executable - Fallback)
         if: failure()
         run: |
           .\build\bin\netcode_tests.exe
           
-      - name: Upload Test Results
+      - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v3
         with:
           name: test-results
           path: |
             build/Testing/
-            build/bin/
+          retention-days: 7
