@@ -23,24 +23,30 @@ endif()
 option(BUILD_TESTS "Build test programs" ON)
 option(BUILD_DOCS "Build documentation" OFF)
 
+# CRITICAL: Enable testing at ROOT level - required for VS Test Explorer
+enable_testing()
+
 # vcpkg integration
 if(DEFINED CMAKE_TOOLCHAIN_FILE)
     message(STATUS "Using vcpkg toolchain: ${CMAKE_TOOLCHAIN_FILE}")
 endif()
 
 # Find SFML via vcpkg (manifest mode handles toolchain automatically)
-find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system)
+find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system network)
 
 # Make SFML available to subdirectories
-set(SFML_LIBRARIES sfml-graphics sfml-window sfml-system)
+set(SFML_LIBRARIES sfml-graphics sfml-window sfml-system sfml-network)
 set(SFML_INCLUDE_DIRS ${SFML_INCLUDE_DIR})
 
-# Include custom modules
-include(CompilerWarnings)
+# Include custom modules (only if the file exists)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CompilerWarnings.cmake")
+    include(CompilerWarnings)
+endif()
 
 # Add subdirectories
 add_subdirectory(src)
 
+# Only add tests if BUILD_TESTS is ON
 if(BUILD_TESTS)
     add_subdirectory(tests)
 endif()
