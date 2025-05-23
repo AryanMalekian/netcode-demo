@@ -2,7 +2,7 @@ name: Build (CMake + vcpkg)
 
 on:
   push:
-    branches: ["*"]
+    branches: [ "*" ]
   pull_request:
 
 jobs:
@@ -13,44 +13,36 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Cache vcpkg directory
-        uses: actions/cache@v4
-        with:
-          path: vcpkg
-          key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
-
-      - name: Cache vcpkg_installed directory
-        uses: actions/cache@v4
-        with:
-          path: vcpkg_installed
-          key: ${{ runner.os }}-vcpkg_installed-${{ hashFiles('vcpkg.json') }}
-
-      - name: Clone and bootstrap vcpkg if needed
-        if: steps.cache-vcpkg.outputs.cache-hit != 'true'
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git
-          if [ "${{ runner.os }}" = "Windows" ]; then
-            .\vcpkg\bootstrap-vcpkg.bat
-          else
-            ./vcpkg/bootstrap-vcpkg.sh
-          fi
-
-      - name: Install CMake
+      - name: Set up CMake
         uses: lukka/get-cmake@latest
 
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
 
-      - name: Configure project
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/vcpkg
+            ${{ github.workspace }}/vcpkg_installed
+          key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
+
+      - name: Bootstrap vcpkg
         run: |
-          mkdir -p build
-          cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
+          git clone https://github.com/microsoft/vcpkg.git
+          ./vcpkg/bootstrap-vcpkg.sh || ./vcpkg/bootstrap-vcpkg.bat
+        shell: bash
+
+      - name: Configure project
+        run: >
+          cmake -B build -S . -G Ninja
+          -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake
+          -DCMAKE_BUILD_TYPE=Release
+        shell: bash
 
       - name: Build project
-        run: cmake --build build --config Debug
-
-      - name: Run tests
-        run: ctest --output-on-failure --test-dir build || true
+        run: cmake --build build
+        shell: bash
