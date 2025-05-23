@@ -32,16 +32,13 @@ jobs:
         uses: seanmiddleditch/gha-setup-ninja@v3
 
       - name: Configure (CMake Presets)
-        run: >
-          cmake --preset default
+        run: cmake --preset x64-debug
         env:
           VCPKG_FEATURE_FLAGS: manifests
 
       - name: Build (CMake Presets)
-        run: >
-          cmake --build --preset default
+        run: cmake --build --preset x64-debug
 
       - name: Run tests (if you have tests)
-        run: |
-          ctest --preset default || true
+        run: ctest --preset x64-debug || true
         if: always()
