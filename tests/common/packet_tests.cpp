@@ -15,7 +15,7 @@
 
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_all.hpp>
-#include "../../include/packet.hpp"
+#include "netcode/common/packet.hpp"
 #include <cstring>  // For std::memcmp
 
 TEST_CASE("Packet serialization/deserialization - roundtrip", "[Packet]") {

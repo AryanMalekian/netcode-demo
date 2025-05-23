@@ -11,8 +11,8 @@
 
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_all.hpp>
-#include "../../include/prediction.hpp"
-#include "../../include/packet.hpp"
+#include "netcode/common/prediction.hpp"
+#include "netcode/common/packet.hpp"
 
 TEST_CASE("predictPosition: Zero delta time returns same position", "[Prediction]") {
     Packet pkt{ 12, 100.0f, 50.0f, 4.0f, -3.0f };

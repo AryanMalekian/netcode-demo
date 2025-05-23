@@ -11,8 +11,8 @@
 
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_all.hpp>
-#include "../../include/interpolation.hpp"
-#include "../../include/packet.hpp"
+#include "netcode/common/interpolation.hpp"
+#include "netcode/common/packet.hpp"
 
 TEST_CASE("interpolatePosition: t=0 returns first packet position", "[Interpolation]") {
     Packet a{ 0, 10.f, 20.f, 0.f, 0.f };

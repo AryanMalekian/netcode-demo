@@ -1,50 +1,48 @@
-﻿cmake_minimum_required(VERSION 3.20)
-project(netcode-demo
-    VERSION 1.0.0
-    DESCRIPTION "Multiplayer networking demonstration"
-    LANGUAGES CXX
-)
+﻿    cmake_minimum_required(VERSION 3.20)
+    project(netcode-demo
+        VERSION 1.0.0
+        DESCRIPTION "Multiplayer networking demonstration"
+        LANGUAGES CXX
+    )
 
-# Set C++ standard
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
+    # Set C++ standard
+    set(CMAKE_CXX_STANDARD 17)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+    set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Add custom CMake modules
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+    # Add custom CMake modules
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
-# Set default build type
-if(NOT CMAKE_BUILD_TYPE)
-    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
-endif()
+    # Set default build type
+    if(NOT CMAKE_BUILD_TYPE)
+        set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+        set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+    endif()
 
-# Options
-option(BUILD_TESTS "Build test programs" ON)
-option(BUILD_DOCS "Build documentation" OFF)
+    # Options
+    option(BUILD_TESTS "Build test programs" ON)
+    option(BUILD_DOCS "Build documentation" OFF)
 
-# vcpkg integration
-if(DEFINED CMAKE_TOOLCHAIN_FILE)
-    message(STATUS "Using vcpkg toolchain: ${CMAKE_TOOLCHAIN_FILE}")
-endif()
+    # vcpkg integration
+    if(DEFINED CMAKE_TOOLCHAIN_FILE)
+        message(STATUS "Using vcpkg toolchain: ${CMAKE_TOOLCHAIN_FILE}")
+    endif()
 
-# Find SFML via vcpkg (manifest mode handles toolchain automatically)
-find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system)
+    # Find SFML via vcpkg (manifest mode handles toolchain automatically)
+    find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system)
 
-# Make SFML available to subdirectories
-set(SFML_LIBRARIES sfml-graphics sfml-window sfml-system)
-set(SFML_INCLUDE_DIRS ${SFML_INCLUDE_DIR})
+    # Make SFML available to subdirectories
+    set(SFML_LIBRARIES sfml-graphics sfml-window sfml-system)
+    set(SFML_INCLUDE_DIRS ${SFML_INCLUDE_DIR})
 
-# Include custom modules
-include(CompilerWarnings)
+    # Include custom modules
+    include(CompilerWarnings)
 
-# Add subdirectories
-add_subdirectory(src)
-
-if(BUILD_TESTS)
+    # Add subdirectories
+    add_subdirectory(src)
     add_subdirectory(tests)
-endif()
+   
 
-# Install configuration
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
+    # Install configuration
+    include(GNUInstallDirs)
+    include(CMakePackageConfigHelpers)
