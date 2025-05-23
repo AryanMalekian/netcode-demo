@@ -13,7 +13,6 @@
  * @date 22.05.2025
  */
 
-#define CATCH_CONFIG_MAIN
 #include <catch2/catch_all.hpp>
 #include "netcode/common/packet.hpp"
 #include <cstring>  // For std::memcmp
