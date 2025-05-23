@@ -30,3 +30,18 @@ TEST_CASE("interpolatePosition: t=1 returns second packet position", "[Interpola
     REQUIRE(pos.second == Catch::Approx(77.f));
 }
 
+TEST_CASE("interpolatePosition: t=0.5 returns midpoint", "[Interpolation]") {
+    Packet a{ 0, 0.f, 0.f, 0.f, 0.f };
+    Packet b{ 1, 8.f, 4.f, 0.f, 0.f };
+    auto pos = interpolatePosition(a, b, 0.5f);
+    REQUIRE(pos.first == Catch::Approx(4.f));
+    REQUIRE(pos.second == Catch::Approx(2.f));
+}
+
+TEST_CASE("interpolatePosition: Negative direction interpolation", "[Interpolation]") {
+    Packet a{ 0, 100.f, 100.f, 0.f, 0.f };
+    Packet b{ 1, 80.f, 60.f, 0.f, 0.f };
+    auto pos = interpolatePosition(a, b, 0.25f);
+    REQUIRE(pos.first == Catch::Approx(95.f));
+    REQUIRE(pos.second == Catch::Approx(90.f));
+}
