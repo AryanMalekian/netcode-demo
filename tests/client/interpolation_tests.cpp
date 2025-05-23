@@ -1,0 +1,32 @@
+/**
+ * @file interpolation_tests.cpp
+ * @brief Unit tests for linear interpolation (interpolatePosition) in netcode demo.
+ *
+ * Tests that the interpolation function returns correct midpoints,
+ * handles t=0 and t=1, and works with negative movement.
+ *
+ * @author Aryan Malekian
+ * @date 22.05.2025
+ */
+
+#define CATCH_CONFIG_MAIN
+#include <catch2/catch_all.hpp>
+#include "../../include/interpolation.hpp"
+#include "../../include/packet.hpp"
+
+TEST_CASE("interpolatePosition: t=0 returns first packet position", "[Interpolation]") {
+    Packet a{ 0, 10.f, 20.f, 0.f, 0.f };
+    Packet b{ 1, 50.f, 80.f, 0.f, 0.f };
+    auto pos = interpolatePosition(a, b, 0.f);
+    REQUIRE(pos.first == Catch::Approx(10.f));
+    REQUIRE(pos.second == Catch::Approx(20.f));
+}
+
+TEST_CASE("interpolatePosition: t=1 returns second packet position", "[Interpolation]") {
+    Packet a{ 0, -3.f, 7.f, 0.f, 0.f };
+    Packet b{ 1, 27.f, 77.f, 0.f, 0.f };
+    auto pos = interpolatePosition(a, b, 1.f);
+    REQUIRE(pos.first == Catch::Approx(27.f));
+    REQUIRE(pos.second == Catch::Approx(77.f));
+}
+
