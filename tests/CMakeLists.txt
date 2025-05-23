@@ -28,7 +28,7 @@ file(GLOB COMMON_SRC
 add_executable(netcode_tests
     ${TEST_SOURCES}
     ${COMMON_SRC}
-)
+ "client/client_tests.cpp")
 
 # Set include directories
 target_include_directories(netcode_tests PRIVATE
