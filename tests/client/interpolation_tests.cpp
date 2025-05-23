@@ -3,7 +3,7 @@
      * @brief Unit tests for linear interpolation (interpolatePosition) in netcode demo.
      *
      * Tests that the interpolation function returns correct midpoints,
-     * handles t=0 and t=1, and works with negative movement.
+     * handles t=0 and t=1, and works with negative movement..
      *
      * @author Aryan Malekian
      * @date 22.05.2025
