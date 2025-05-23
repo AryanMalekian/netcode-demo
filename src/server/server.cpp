@@ -1,17 +1,17 @@
 /**
  * @file server.cpp
- * @brief UDP server for network programming  project.
+ * @brief Cross-platform UDP server for network programming project.
  *
  * Listens for UDP packets from clients on port 54000,
  * decodes each packet, prints its contents, and echoes it back to the sender.
  *
  * Demonstrates:
- * - Use of Winsock for raw UDP communication
+ * - Use of Winsock (on Windows) or BSD sockets (on macOS/Linux) for raw UDP communication
  * - Serialization/deserialization of custom packet types (see Packet in packet.hpp)
  * - Stateless server loop suitable for multiplayer games or real-time netcode
  *
  * Program flow:
- * 1. Initialize Winsock API (WSAStartup)
+ * 1. Initialize socket API (WSAStartup on Windows; nothing needed on Unix)
  * 2. Create a UDP socket (socket)
  * 3. Bind the socket to port 54000 (bind)
  * 4. Enter main loop:
@@ -19,11 +19,14 @@
  *    b. Deserialize the buffer into a Packet struct
  *    c. Print the packet contents to the console
  *    d. Echo the same packet back to the client (sendto)
- * 5. Cleanup resources on shutdown (closesocket, WSACleanup)
+ * 5. Cleanup resources on shutdown (closesocket/WSACleanup on Windows, close() on Unix)
+ *
+ * This code is portable and will compile and run on both Windows and Unix-like systems.
  *
  * @author Aryan Malekian
  * @date 20.05.2025
  */
+
 
 #ifdef _WIN32
 #include <winsock2.h>
