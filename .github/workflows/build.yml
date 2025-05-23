@@ -24,19 +24,21 @@ jobs:
 
       - name: Set up vcpkg
         run: |
-          git clone https://github.com/Microsoft/vcpkg.git vcpkg
+          git clone https://github.com/microsoft/vcpkg.git vcpkg
           cd vcpkg
           ./bootstrap-vcpkg.sh || ./bootstrap-vcpkg.bat
           cd ..
 
-      - name: Install SFML via vcpkg
+      - name: Install dependencies via vcpkg (manifest mode)
         run: |
           case "${{ matrix.os }}" in
             ubuntu-latest)  TRIPLET="x64-linux"   ;;
             macos-latest)   TRIPLET="x64-osx"     ;;
             windows-latest) TRIPLET="x64-windows" ;;
           esac
-          ./vcpkg/vcpkg install sfml:${TRIPLET}
+          # NOTE: in manifest mode you don’t name individual ports,
+          # vcpkg.json already lists "sfml" for you.
+          ./vcpkg/vcpkg install --triplet "${TRIPLET}"
 
       - name: Configure CMake
         run: |
