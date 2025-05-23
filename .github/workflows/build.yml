@@ -16,14 +16,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache vcpkg
+      - name: Cache vcpkg directory
         uses: actions/cache@v4
         with:
-          path: |
-            vcpkg_installed
-            ~/.cache/vcpkg
-            ~/.vcpkg
+          path: vcpkg
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
+
+      - name: Cache vcpkg_installed directory
+        uses: actions/cache@v4
+        with:
+          path: vcpkg_installed
+          key: ${{ runner.os }}-vcpkg_installed-${{ hashFiles('vcpkg.json') }}
+
+      - name: Clone and bootstrap vcpkg if needed
+        if: steps.cache-vcpkg.outputs.cache-hit != 'true'
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            .\vcpkg\bootstrap-vcpkg.bat
+          else
+            ./vcpkg/bootstrap-vcpkg.sh
+          fi
 
       - name: Install CMake
         uses: lukka/get-cmake@latest
@@ -31,16 +44,13 @@ jobs:
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
 
-      - name: Configure CMake
+      - name: Configure project
         run: |
-          mkdir build
+          mkdir -p build
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=./vcpkg/scripts/buildsystems/vcpkg.cmake
-        env:
-          VCPKG_FEATURE_FLAGS: manifests
 
-      - name: Build
+      - name: Build project
         run: cmake --build build --config Debug
 
-      - name: Run tests (if any)
-        run: ctest --test-dir build || true
-        if: always()
+      - name: Run tests
+        run: ctest --output-on-failure --test-dir build || true
