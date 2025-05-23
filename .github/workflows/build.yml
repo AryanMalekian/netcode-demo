@@ -13,17 +13,28 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up vcpkg
+        shell: pwsh
+        run: |
+          git clone https://github.com/microsoft/vcpkg.git vcpkg
+          .\vcpkg\bootstrap-vcpkg.bat
+
       - name: Cache vcpkg build artifacts
         uses: actions/cache@v3
         with:
           path: |
-            vcpkg/installed
-            vcpkg/buildtrees
-            vcpkg/downloads
-            vcpkg/packages
+            vcpkg\installed
+            vcpkg\buildtrees
+            vcpkg\downloads
+            vcpkg\packages
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-
+
+      - name: Install dependencies via vcpkg (manifest mode)
+        shell: pwsh
+        run: |
+          .\vcpkg\vcpkg.exe install --triplet x64-windows
 
       - name: Install CMake
         uses: lukka/get-cmake@latest
@@ -31,19 +42,11 @@ jobs:
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
 
-      - name: Set up vcpkg
-        run: |
-          git clone https://github.com/microsoft/vcpkg.git vcpkg
-          .\vcpkg\bootstrap-vcpkg.bat
-
-      - name: Install dependencies via vcpkg (manifest mode)
-        run: |
-          .\vcpkg\vcpkg.exe install --triplet x64-windows
-
       - name: Configure, build & test
+        shell: pwsh
         run: |
-          cmake -B build -S . -G "Ninja" `
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+          cmake -B build -S . -G Ninja `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
           ctest --test-dir build --output-on-failure || true
