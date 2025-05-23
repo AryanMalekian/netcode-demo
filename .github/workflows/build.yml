@@ -1,4 +1,4 @@
-name: Build (CMake + vcpkg on Windows)
+name: CI (build + test)
 
 on:
   push:
@@ -6,8 +6,11 @@ on:
   pull_request:
 
 jobs:
-  build:
+  build-and-test:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        run_tests: ["OFF", "ON"]
 
     steps:
       - name: Checkout code
@@ -31,7 +34,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-
 
-      - name: Install dependencies via vcpkg (manifest mode)
+      - name: Install dependencies via vcpkg
         shell: pwsh
         run: |
           .\vcpkg\vcpkg.exe install --triplet x64-windows
@@ -42,11 +45,17 @@ jobs:
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
 
-      - name: Configure, build & test
+      - name: Configure
         shell: pwsh
         run: |
           cmake -B build -S . -G Ninja `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
-          ctest --test-dir build --output-on-failure || true
+            -DCMAKE_BUILD_TYPE=Release `
+            -DBUILD_TESTS=${{ matrix.run_tests }}
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Run tests
+        if: matrix.run_tests == 'ON'
+        run: ctest --test-dir build --output-on-failure
