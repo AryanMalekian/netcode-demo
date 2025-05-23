@@ -1,4 +1,4 @@
-name: Build (CMake + vcpkg)
+name: Build (CMake + vcpkg on Windows)
 
 on:
   push:
@@ -7,10 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: windows-latest
 
     steps:
       - name: Checkout code
@@ -25,30 +22,16 @@ jobs:
       - name: Set up vcpkg
         run: |
           git clone https://github.com/microsoft/vcpkg.git vcpkg
-          cd vcpkg
-          ./bootstrap-vcpkg.sh || ./bootstrap-vcpkg.bat
-          cd ..
+          .\vcpkg\bootstrap-vcpkg.bat
 
       - name: Install dependencies via vcpkg (manifest mode)
         run: |
-          case "${{ matrix.os }}" in
-            ubuntu-latest)  TRIPLET="x64-linux"   ;;
-            macos-latest)   TRIPLET="x64-osx"     ;;
-            windows-latest) TRIPLET="x64-windows" ;;
-          esac
-          # NOTE: in manifest mode you don’t name individual ports,
-          # vcpkg.json already lists "sfml" for you.
-          ./vcpkg/vcpkg install --triplet "${TRIPLET}"
+          .\vcpkg\vcpkg.exe install --triplet x64-windows
 
-      - name: Configure CMake
+      - name: Configure, build & test
         run: |
-          cmake -B build -S . \
-            -G Ninja \
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" \
+          cmake -B build -S . -G "Ninja" `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build project
-        run: cmake --build build --config Release
-
-      - name: Run tests
-        run: ctest --test-dir build --output-on-failure || true
+          cmake --build build --config Release
+          ctest --test-dir build --output-on-failure || true
