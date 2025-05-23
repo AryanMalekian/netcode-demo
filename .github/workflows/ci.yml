@@ -1,0 +1,32 @@
+name: C++ CI
+
+on:
+  push:
+    branches: [ main, dev ]
+  pull_request:
+    branches: [ main, dev ]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Set up MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Setup and run vcpkg
+      uses: lukka/run-vcpkg@v11
+      with:
+        vcpkgDirectory: '${{ github.workspace }}/vcpkg'
+        vcpkgGitCommitId: '6f1ddd6b6878e7e66fcc35c65ba1d8feec2e01f8'  
+        runVcpkgInstall: true
+
+    - name: Build Solution
+      run: |
+        msbuild netcode-demo.sln /m /p:Configuration=Debug /p:Platform=x64
+      shell: cmd
