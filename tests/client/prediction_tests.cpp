@@ -27,3 +27,10 @@ TEST_CASE("predictPosition: Simple linear prediction", "[Prediction]") {
     REQUIRE(result.first == Catch::Approx(20.0f));
     REQUIRE(result.second == Catch::Approx(10.0f));
 }
+
+TEST_CASE("predictPosition: Negative velocity and positive time", "[Prediction]") {
+    Packet pkt{ 5, -10.0f, 30.0f, -2.5f, -7.0f };
+    auto result = predictPosition(pkt, 4.0f);
+    REQUIRE(result.first == Catch::Approx(-20.0f));
+    REQUIRE(result.second == Catch::Approx(2.0f));
+}
