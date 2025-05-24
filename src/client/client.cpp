@@ -829,8 +829,7 @@ int main() {
 
         window.display();
 
-        // n) Frame rate limiting (in addition to SFML's limiter)
-        std::this_thread::sleep_for(std::chrono::milliseconds(16));  // ~60 FPS
+        
     }
 
     // (11) Cleanup
