@@ -6,7 +6,7 @@
  * @date 21.05.2025
  */
 
-#include "interpolation.hpp"
+#include "netcode/common/interpolation.hpp"
 
 std::pair<float, float> interpolatePosition(const Packet& prev, const Packet& next, float t) {
     float x = prev.x + (next.x - prev.x) * t;

@@ -2,7 +2,7 @@
  * @file interpolation.hpp
  * @brief Linear interpolation between two Packet states.
  *
- * @author Aryan Malekian
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 21.05.2025
  */
 
