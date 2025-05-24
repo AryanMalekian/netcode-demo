@@ -21,7 +21,7 @@ endif()
 
 # Options
 option(BUILD_TESTS "Build test programs" ON)
-option(BUILD_DOCS "Build documentation" OFF)
+option(BUILD_DOCS "Build documentation" ON)
 
 # CRITICAL: Enable testing at ROOT level - required for VS Test Explorer
 enable_testing()
