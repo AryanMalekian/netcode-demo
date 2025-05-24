@@ -5,7 +5,7 @@
  * Defines the InputCommand struct that represents player input at a specific time.
  * This is used for input buffering and reconciliation in the prediction system.
  *
- * @author Aryan Malekian
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 23.05.2025
  */
 

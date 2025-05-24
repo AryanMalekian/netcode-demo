@@ -17,6 +17,7 @@
  * - **Sectioned visualization**: Simultaneous side-by-side comparison of local, server, naive-predicted, and advanced-predicted positions
  * - **Trail visualization**: Each dot leaves a faded trail to show movement history and delay effects
  * - **Interactive UI**: Press [C] to clear all trails. Arrow keys move the local object.
+ * - **Robust error handling**: Comprehensive validation and error reporting
  *
  * Visualization legend:
  *   - Section 1: Local input (green)
@@ -42,6 +43,9 @@ typedef SOCKET socket_t;
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <cerrno>
+#include <cstring>
 typedef int socket_t;
 #endif
 
@@ -59,6 +63,87 @@ typedef int socket_t;
 #include "netcode/common/input.hpp"
 
 #include <SFML/Graphics.hpp>
+
+// -----------------------------------------------------------------------------
+// Enhanced error handling utilities
+
+/**
+ * @brief Prints detailed error information for socket operations.
+ * @param operation The socket operation that failed (e.g., "socket", "connect")
+ */
+void printSocketError(const char* operation) {
+#ifdef _WIN32
+    int error = WSAGetLastError();
+    std::cerr << "[ERROR] " << operation << " failed with error code: " << error;
+
+    switch (error) {
+    case WSAEADDRINUSE:
+        std::cerr << " (Address already in use)";
+        break;
+    case WSAECONNREFUSED:
+        std::cerr << " (Connection refused - is server running?)";
+        break;
+    case WSAENETUNREACH:
+        std::cerr << " (Network unreachable)";
+        break;
+    case WSAETIMEDOUT:
+        std::cerr << " (Operation timed out)";
+        break;
+    case WSAEWOULDBLOCK:
+        std::cerr << " (Operation would block - non-blocking socket)";
+        break;
+    default:
+        std::cerr << " (Unknown error)";
+        break;
+    }
+#else
+    int error = errno;
+    std::cerr << "[ERROR] " << operation << " failed: " << strerror(error) << " (" << error << ")";
+
+    switch (error) {
+    case ECONNREFUSED:
+        std::cerr << " - Is the server running on port 54000?";
+        break;
+    case ENETUNREACH:
+        std::cerr << " - Network unreachable";
+        break;
+    case ETIMEDOUT:
+        std::cerr << " - Connection timed out";
+        break;
+    case EWOULDBLOCK:
+    case EAGAIN:
+        // This is normal for non-blocking sockets, don't print error
+        return;
+    default:
+        break;
+    }
+#endif
+    std::cerr << std::endl;
+}
+
+/**
+ * @brief Gets current timestamp for logging.
+ * @return Formatted timestamp string
+ */
+std::string getCurrentTimestamp() {
+    auto now = std::chrono::system_clock::now();
+    auto time_t = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) % 1000;
+
+    std::stringstream ss;
+#ifdef _WIN32
+    // Use thread-safe localtime_s on Windows
+    struct tm timeinfo;
+    localtime_s(&timeinfo, &time_t);
+    ss << std::put_time(&timeinfo, "%H:%M:%S");
+#else
+    // Use localtime on Unix systems
+    ss << std::put_time(std::localtime(&time_t), "%H:%M:%S");
+#endif
+    ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
+    return ss.str();
+}
 
 // -----------------------------------------------------------------------------
 // Artificial network delay simulation utilities
@@ -197,38 +282,61 @@ int main() {
     // (1) Initialize Winsock API
     WSADATA wsa;
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
-        std::cerr << "WSAStartup failed\n";
+        printSocketError("WSAStartup");
         return 1;
     }
+    std::cout << "[" << getCurrentTimestamp() << "] Winsock initialized successfully" << std::endl;
+#else
+    std::cout << "[" << getCurrentTimestamp() << "] Starting UDP client on Unix-like system" << std::endl;
 #endif
 
     // (2) Create a UDP socket (non-blocking)
     socket_t sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 #ifdef _WIN32
     if (sock == INVALID_SOCKET) {
-        std::cerr << "socket() failed\n";
+        printSocketError("socket");
         WSACleanup();
         return 1;
     }
     u_long mode = 1;
-    ioctlsocket(sock, FIONBIO, &mode);
+    if (ioctlsocket(sock, FIONBIO, &mode) != 0) {
+        printSocketError("ioctlsocket (setting non-blocking)");
+        closesocket(sock);
+        WSACleanup();
+        return 1;
+    }
 #else
     if (sock < 0) {
-        std::cerr << "socket() failed\n";
+        printSocketError("socket");
         return 1;
     }
     int flags = fcntl(sock, F_GETFL, 0);
-    fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+    if (flags < 0 || fcntl(sock, F_SETFL, flags | O_NONBLOCK) < 0) {
+        printSocketError("fcntl (setting non-blocking)");
+        close(sock);
+        return 1;
+    }
 #endif
+    std::cout << "[" << getCurrentTimestamp() << "] UDP socket created and set to non-blocking mode" << std::endl;
 
     // (3) Prepare server address (localhost:54000)
     sockaddr_in servAddr{};
     servAddr.sin_family = AF_INET;
-    inet_pton(AF_INET, "127.0.0.1", &servAddr.sin_addr);
+    if (inet_pton(AF_INET, "127.0.0.1", &servAddr.sin_addr) <= 0) {
+        std::cerr << "[ERROR] Invalid server address format" << std::endl;
+#ifdef _WIN32
+        closesocket(sock);
+        WSACleanup();
+#else
+        close(sock);
+#endif
+        return 1;
+    }
     servAddr.sin_port = htons(54000);
+    std::cout << "[" << getCurrentTimestamp() << "] Server address configured: 127.0.0.1:54000" << std::endl;
 
     // (4) Simulation state
-    uint32_t seq = 0;
+    uint32_t seq = 1; // Start from 1 (0 is invalid for packet validation)
     float x = 400, y = 400; // Start at center
 
     // (5) Advanced prediction system (input buffering and reconciliation)
@@ -249,11 +357,15 @@ int main() {
     socklen_t fromSize = sizeof(fromAddr);
 #endif
 
-    // (8) Metrics
+    // (8) Metrics and error tracking
     auto lastSendTime = std::chrono::steady_clock::now();
     float avgRTT = 100.0f;
     int packetsReceived = 0;
     int packetsSent = 0;
+    int invalidPacketsReceived = 0;
+    int sendErrors = 0;
+    auto lastServerPacketTime = std::chrono::steady_clock::now();
+    bool serverConnected = false;
 
     // (9) SFML window and visual setup (four sections for comparison)
     sf::RenderWindow window(sf::VideoMode(1600, 900), "Advanced Netcode Demo - Visual Comparison");
@@ -304,11 +416,12 @@ int main() {
     for (const auto& path : fontPaths) {
         if (font.loadFromFile(path)) {
             fontLoaded = true;
+            std::cout << "[" << getCurrentTimestamp() << "] Font loaded: " << path << std::endl;
             break;
         }
     }
     if (!fontLoaded) {
-        std::cerr << "Warning: Could not load any font file\n";
+        std::cout << "[" << getCurrentTimestamp() << "] Warning: Could not load any font file" << std::endl;
     }
 
     // Section labels
@@ -335,7 +448,11 @@ int main() {
     sf::Text instructionsText("", font, 14);
     instructionsText.setPosition(10, 850);
     instructionsText.setFillColor(sf::Color(200, 200, 200));
-    instructionsText.setString("Use Arrow Keys to move | Watch how different prediction methods handle network latency");
+    instructionsText.setString("Use Arrow Keys to move | Press C to clear trails | Watch how different prediction methods handle network latency");
+
+    // Connection status text
+    sf::Text statusText("", font, 16);
+    statusText.setPosition(10, 120);
 
     // Interpolation section (separate display area)
     sf::RectangleShape interpSection;
@@ -348,6 +465,8 @@ int main() {
     sf::Text interpLabel("Interpolation\n(Smooth Between Updates)", font, 16);
     interpLabel.setPosition(1220, 560);
     interpLabel.setFillColor(sf::Color::White);
+
+    std::cout << "[" << getCurrentTimestamp() << "] Client initialization complete. Starting main loop..." << std::endl;
 
     // (10) Main loop: simulate, communicate, predict, reconcile, visualize
     auto frameStart = std::chrono::steady_clock::now();
@@ -369,17 +488,32 @@ int main() {
                 naiveTrail.clear();
                 advancedTrail.clear();
                 interpTrail.clear();
+                std::cout << "[" << getCurrentTimestamp() << "] Trails cleared by user" << std::endl;
             }
         }
 
-        // b) Gather keyboard input
+        // b) Check server connection status
+        auto timeSinceLastPacket = std::chrono::duration<float>(now - lastServerPacketTime).count();
+        bool wasConnected = serverConnected;
+        serverConnected = (timeSinceLastPacket < 5.0f); // 5 second timeout
+
+        if (wasConnected != serverConnected) {
+            if (serverConnected) {
+                std::cout << "[" << getCurrentTimestamp() << "] Server connection established" << std::endl;
+            }
+            else {
+                std::cout << "[" << getCurrentTimestamp() << "] Server connection lost (timeout)" << std::endl;
+            }
+        }
+
+        // c) Gather keyboard input
         float inputX = 0.0f, inputY = 0.0f;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))  inputX = 1.0f;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))   inputX = -1.0f;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))   inputY = 1.0f;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))     inputY = -1.0f;
 
-        // c) Advanced prediction: buffer input, predict forward
+        // d) Advanced prediction: buffer input, predict forward
         InputCommand input(seq, inputX, inputY, frameDt);
         advancedPrediction.applyInput(input);
 
@@ -397,14 +531,22 @@ int main() {
         float vx = advPredVel.first;
         float vy = advPredVel.second;
 
-        // d) Send packet to server (with artificial delay)
+        // e) Send packet to server (with artificial delay)
         auto timeSinceLastSend = std::chrono::duration<float>(now - lastSendTime).count();
         if (timeSinceLastSend >= 0.033f && !advancedPrediction.shouldThrottle()) {  // ~30Hz send rate
             Packet p{ seq++, x, y, vx, vy };
-            p.serialize(buf);
-            outgoingDelay.send(buf, Packet::size(), servAddr, sizeof(servAddr));
-            lastSendTime = now;
-            packetsSent++;
+
+            // Validate packet before sending
+            if (!p.isValid()) {
+                std::cerr << "[" << getCurrentTimestamp() << "] ERROR: Attempted to send invalid packet (seq="
+                    << p.seq << " x=" << p.x << " y=" << p.y << " vx=" << p.vx << " vy=" << p.vy << ")" << std::endl;
+            }
+            else {
+                p.serialize(buf);
+                outgoingDelay.send(buf, Packet::size(), servAddr, sizeof(servAddr));
+                lastSendTime = now;
+                packetsSent++;
+            }
         }
 
         // Outbound delay: actually send packets when delay expires
@@ -412,40 +554,63 @@ int main() {
         int delayedAddrLen;
         char delayedBuf[Packet::size()];
         while (outgoingDelay.getReady(delayedBuf, Packet::size(), delayedAddr, delayedAddrLen)) {
-            sendto(sock, delayedBuf, static_cast<int>(Packet::size()), 0,
+            int result = sendto(sock, delayedBuf, static_cast<int>(Packet::size()), 0,
                 (sockaddr*)&delayedAddr, delayedAddrLen);
+            if (result < 0) {
+                printSocketError("sendto");
+                sendErrors++;
+            }
+            else if (result != static_cast<int>(Packet::size())) {
+                std::cerr << "[" << getCurrentTimestamp() << "] WARNING: Partial send ("
+                    << result << "/" << Packet::size() << " bytes)" << std::endl;
+            }
         }
 
-        // e) Receive from server (with artificial inbound delay)
+        // f) Receive from server (with artificial inbound delay)
         int bytes = recvfrom(sock, buf, static_cast<int>(Packet::size()), 0,
             (sockaddr*)&fromAddr, &fromSize);
         if (bytes == static_cast<int>(Packet::size())) {
             incomingDelay.send(buf, Packet::size(), fromAddr, fromSize);
         }
+        else if (bytes > 0) {
+            std::cerr << "[" << getCurrentTimestamp() << "] WARNING: Received packet with wrong size: "
+                << bytes << " bytes (expected " << Packet::size() << ")" << std::endl;
+            invalidPacketsReceived++;
+        }
+        else if (bytes < 0) {
 #ifdef _WIN32
-        else if (bytes == -1 && WSAGetLastError() == WSAEWOULDBLOCK) {
-            // no data available
-        }
-        else if (bytes == -1) {
-            std::cerr << "Socket error: " << WSAGetLastError() << "\n";
-        }
+            int error = WSAGetLastError();
+            if (error != WSAEWOULDBLOCK) {
+                printSocketError("recvfrom");
+            }
 #else
-        else if (bytes == -1 && (errno == EWOULDBLOCK || errno == EAGAIN)) {
-            // no data available
-        }
-        else if (bytes == -1) {
-            std::cerr << "Socket error: " << errno << "\n";
-        }
+            if (errno != EWOULDBLOCK && errno != EAGAIN) {
+                printSocketError("recvfrom");
+            }
 #endif
+        }
 
-        // f) Process delayed inbound packets ("receive" when delay expires)
+        // g) Process delayed inbound packets ("receive" when delay expires)
         bool gotDelayedPacket = false;
         sockaddr_in incomingAddr;
         int incomingAddrLen;
         char incomingBuf[Packet::size()];
         while (incomingDelay.getReady(incomingBuf, Packet::size(), incomingAddr, incomingAddrLen)) {
+            Packet receivedPacket;
+            receivedPacket.deserialize(incomingBuf);
+
+            // Validate received packet
+            if (!receivedPacket.isValid()) {
+                std::cerr << "[" << getCurrentTimestamp() << "] WARNING: Received invalid packet from server (seq="
+                    << receivedPacket.seq << " x=" << receivedPacket.x << " y=" << receivedPacket.y
+                    << " vx=" << receivedPacket.vx << " vy=" << receivedPacket.vy << "). Packet dropped." << std::endl;
+                invalidPacketsReceived++;
+                continue;
+            }
+
             gotDelayedPacket = true;
             packetsReceived++;
+            lastServerPacketTime = now;
 
             float rtt = std::chrono::duration<float>(now - lastSendTime).count() * 1000.0f;
             avgRTT = avgRTT * 0.9f + rtt * 0.1f;
@@ -453,18 +618,18 @@ int main() {
             prevPacket = nextPacket;
             prevRecvTime = nextRecvTime;
 
-            nextPacket.deserialize(incomingBuf);
+            nextPacket = receivedPacket;
             nextRecvTime = now;
             hasPrev = true;
 
             advancedPrediction.reconcileWithServer(nextPacket);
         }
 
-        // g) Naive prediction: simple extrapolation from last server packet
+        // h) Naive prediction: simple extrapolation from last server packet
         std::chrono::duration<float> elapsed = now - nextRecvTime;
         auto naivePredicted = predictPosition(nextPacket, elapsed.count());
 
-        // h) Interpolation between last two server packets
+        // i) Interpolation between last two server packets
         float interpX = nextPacket.x, interpY = nextPacket.y;
         if (hasPrev) {
             std::chrono::duration<float> interval = nextRecvTime - prevRecvTime;
@@ -478,14 +643,14 @@ int main() {
             interpY = interp.second;
         }
 
-        // i) Update trails for visualization
+        // j) Update trails for visualization
         localTrail.addPosition(x + 10, y + sectionY);
         remoteTrail.addPosition(nextPacket.x + 10 + sectionWidth, nextPacket.y + sectionY);
         naiveTrail.addPosition(naivePredicted.first + 10 + 2 * sectionWidth, naivePredicted.second + sectionY);
         advancedTrail.addPosition(advPredPos.first + 10 + 3 * sectionWidth, advPredPos.second + sectionY);
         interpTrail.addPosition(interpX + 1220, interpY + 610);
 
-        // j) Update live metrics text
+        // k) Update live metrics text
         std::stringstream metrics;
         metrics << std::fixed << std::setprecision(1);
         metrics << "Network Statistics:\n";
@@ -493,12 +658,26 @@ int main() {
         metrics << "RTT: " << avgRTT << " ms | ";
         metrics << "Packets Sent: " << packetsSent << " | ";
         metrics << "Packets Received: " << packetsReceived << " | ";
+        metrics << "Invalid Packets: " << invalidPacketsReceived << " | ";
+        metrics << "Send Errors: " << sendErrors << "\n";
         metrics << "Packet Loss: " <<
             ((packetsSent > 0) ? (100.0f * (1.0f - (float)packetsReceived / packetsSent)) : 0.0f) << "% | ";
         metrics << "Unacked Inputs: " << advancedPrediction.getUnackedInputCount();
         metricsText.setString(metrics.str());
 
-        // k) Place all dots in their visual sections
+        // l) Update connection status
+        std::stringstream status;
+        if (serverConnected) {
+            status << "Status: CONNECTED to server";
+            statusText.setFillColor(sf::Color::Green);
+        }
+        else {
+            status << "Status: DISCONNECTED - Check if server is running on port 54000";
+            statusText.setFillColor(sf::Color::Red);
+        }
+        statusText.setString(status.str());
+
+        // m) Place all dots in their visual sections
         localDot.setPosition(x + 10 - dotRadius, y + sectionY - dotRadius);
         remoteDot.setPosition(nextPacket.x + 10 + sectionWidth - dotRadius, nextPacket.y + sectionY - dotRadius);
         naivePredictedDot.setPosition(naivePredicted.first + 10 + 2 * sectionWidth - dotRadius,
@@ -507,7 +686,7 @@ int main() {
             advPredPos.second + sectionY - dotRadius);
         interpDot.setPosition(interpX + 1220 - dotRadius, interpY + 610 - dotRadius);
 
-        // l) Render all visualization layers
+        // n) Render all visualization layers
         window.clear(sf::Color(20, 20, 20));
         for (int i = 0; i < 4; ++i) window.draw(sections[i]);
         window.draw(interpSection);
@@ -528,6 +707,7 @@ int main() {
             for (int i = 0; i < 4; ++i) window.draw(sectionLabels[i]);
             window.draw(interpLabel);
             window.draw(metricsText);
+            window.draw(statusText);
             window.draw(instructionsText);
         }
 
@@ -543,11 +723,22 @@ int main() {
 
         window.display();
 
-        // m) Frame rate limiting (in addition to SFML's limiter)
+        // o) Frame rate limiting (in addition to SFML's limiter)
         std::this_thread::sleep_for(std::chrono::milliseconds(16));  // ~60 FPS
     }
 
     // (11) Cleanup
+    std::cout << "[" << getCurrentTimestamp() << "] Shutting down client..." << std::endl;
+    std::cout << "Final statistics:" << std::endl;
+    std::cout << "  Packets sent: " << packetsSent << std::endl;
+    std::cout << "  Packets received: " << packetsReceived << std::endl;
+    std::cout << "  Invalid packets: " << invalidPacketsReceived << std::endl;
+    std::cout << "  Send errors: " << sendErrors << std::endl;
+    if (packetsSent > 0) {
+        std::cout << "  Packet loss rate: " << std::setprecision(2) <<
+            (100.0f * (1.0f - (float)packetsReceived / packetsSent)) << "%" << std::endl;
+    }
+
 #ifdef _WIN32
     closesocket(sock);
     WSACleanup();

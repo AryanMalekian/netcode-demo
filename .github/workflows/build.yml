@@ -36,6 +36,11 @@ jobs:
         run: |
           .\vcpkg\vcpkg.exe install --triplet x64-windows
 
+      - name: Install Doxygen
+        shell: pwsh
+        run: |
+          choco install doxygen.install -y
+
       - name: Install CMake
         uses: lukka/get-cmake@latest
 
