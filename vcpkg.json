@@ -1,8 +1,20 @@
 {
-  "name": "netcode-demo",
-  "version": "1.0.0",
-  "dependencies": [
-    "sfml",
-    "catch2"
-  ]
-} 
+    "name": "netcode-demo",
+    "version": "1.0.0",
+    "description": "Advanced netcode demonstration with client-side prediction and server reconciliation",
+    "dependencies": [
+        "sfml",
+        "catch2"
+    ],
+    "features": {
+        "docs": {
+            "description": "Enable API documentation generation",
+            "dependencies": [
+                {
+                    "name": "doxygen",
+                    "host": true
+                }
+            ]
+        }
+    }
+}
