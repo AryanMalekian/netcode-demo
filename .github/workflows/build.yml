@@ -1,4 +1,4 @@
-﻿name: Build and Test (CMake + vcpkg)
+name: CI (Build & Test with CMake + vcpkg on Windows)
 
 on:
   push:
@@ -8,9 +8,6 @@ on:
 jobs:
   build:
     runs-on: windows-latest
-    
-    outputs:
-      build-success: ${{ steps.build.outcome == 'success' }}
 
     steps:
       - name: Checkout code
@@ -45,46 +42,29 @@ jobs:
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
 
-      - name: Configure CMake
+      - name: Configure and build
         shell: pwsh
         run: |
           cmake -B build -S . -G Ninja `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
             -DCMAKE_BUILD_TYPE=Release
-
-      - name: Build project
-        id: build
-        shell: pwsh
-        run: |
           cmake --build build --config Release
-
-      - name: Upload build artifacts
-        if: success()
-        uses: actions/upload-artifact@v3
-        with:
-          name: netcode-demo-build
-          path: |
-            build/
-            !build/vcpkg_installed/
-            !build/CMakeFiles/
-          retention-days: 7
 
   test:
     runs-on: windows-latest
-    needs: build
-    if: needs.build.outputs.build-success == 'true'
+    needs: build # <-- gjør at test venter på build!
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up vcpkg (for test dependencies)
+      - name: Set up vcpkg
         shell: pwsh
         run: |
           git clone https://github.com/microsoft/vcpkg.git vcpkg
           .\vcpkg\bootstrap-vcpkg.bat
 
-      - name: Cache vcpkg (same as build job)
+      - name: Cache vcpkg build artifacts
         uses: actions/cache@v3
         with:
           path: |
@@ -96,128 +76,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-
 
-      - name: Install test dependencies
+      - name: Install dependencies via vcpkg (manifest mode)
         shell: pwsh
         run: |
           .\vcpkg\vcpkg.exe install --triplet x64-windows
 
-      - name: Install CMake and Ninja
+      - name: Install CMake
         uses: lukka/get-cmake@latest
 
-      - name: Install Ninja  
+      - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
 
-      - name: Download build artifacts
-        uses: actions/download-artifact@v3
-        with:
-          name: netcode-demo-build
-          path: build/
-
-      - name: Configure CMake for testing
+      - name: Configure and build for testing
         shell: pwsh
         run: |
           cmake -B build -S . -G Ninja `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
             -DCMAKE_BUILD_TYPE=Release
-
-      - name: Rebuild for test dependencies
-        shell: pwsh
-        run: |
           cmake --build build --config Release
 
-      - name: Run unit tests
+      - name: Run detailed test suite
         shell: pwsh
         run: |
           cd build
           ctest --output-on-failure --verbose --parallel 4
-
-      - name: Upload test results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results
-          path: |
-            build/Testing/
-          retention-days: 30
-
-      - name: Generate test report
-        if: always()
-        shell: pwsh
-        run: |
-          cd build
-          echo "## Test Results" > test_summary.md
-          echo "" >> test_summary.md
-          ctest --output-on-failure 2>&1 | Tee-Object -FilePath test_output.txt
-          if ($LASTEXITCODE -eq 0) {
-            echo "✅ All tests passed!" >> test_summary.md
-          } else {
-            echo "❌ Some tests failed. See details below." >> test_summary.md
-          }
-          echo "" >> test_summary.md
-          echo "### Test Output:" >> test_summary.md
-          echo '```' >> test_summary.md
-          Get-Content test_output.txt >> test_summary.md
-          echo '```' >> test_summary.md
-
-      - name: Comment test results on PR
-        if: github.event_name == 'pull_request' && always()
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const fs = require('fs');
-            try {
-              const summary = fs.readFileSync('build/test_summary.md', 'utf8');
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: summary
-              });
-            } catch (error) {
-              console.log('Could not read test summary:', error);
-            }
-
-  code-coverage:
-    runs-on: windows-latest
-    needs: test
-    if: always() && needs.test.result != 'cancelled'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup coverage tools
-        shell: pwsh
-        run: |
-          
-          echo "Code coverage analysis would go here"
-          echo "Current test coverage estimated at 95%+ based on comprehensive test suite"
-
-  build-status:
-    runs-on: windows-latest
-    needs: [build, test]
-    if: always()
-
-    steps:
-      - name: Report overall status
-        shell: pwsh
-        run: |
-          $buildStatus = "${{ needs.build.result }}"
-          $testStatus = "${{ needs.test.result }}"
-          
-          echo "Build Status: $buildStatus"
-          echo "Test Status: $testStatus"
-          
-          if ($buildStatus -eq "success" -and $testStatus -eq "success") {
-            echo "🎉 All jobs completed successfully!"
-            exit 0
-          } elseif ($buildStatus -ne "success") {
-            echo "❌ Build failed"
-            exit 1
-          } elseif ($testStatus -ne "success") {
-            echo "❌ Tests failed"
-            exit 1
-          } else {
-            echo "❓ Unknown status combination"
-            exit 1
-          }
