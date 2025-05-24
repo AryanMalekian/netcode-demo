@@ -335,15 +335,22 @@ int main() {
     servAddr.sin_port = htons(54000);
     std::cout << "[" << getCurrentTimestamp() << "] Server address configured: 127.0.0.1:54000" << std::endl;
 
-    // (4) Simulation state
+    // (4) Simulation state - start at center of play area
     uint32_t seq = 1; // Start from 1 (0 is invalid for packet validation)
-    float x = 400, y = 400; // Start at center
+    float x = 200, y = 300; // Center of play area
 
     // (5) Advanced prediction system (input buffering and reconciliation)
     PredictionSystem advancedPrediction(x, y);
 
-    // (6) Server packet history for interpolation
-    Packet prevPacket{}, nextPacket{};
+    // (6) Server packet history for interpolation - initialize with starting position
+    Packet prevPacket{};
+    Packet nextPacket{};
+    prevPacket.seq = 0;
+    prevPacket.x = x;
+    prevPacket.y = y;
+    prevPacket.vx = 0;
+    prevPacket.vy = 0;
+    nextPacket = prevPacket;
     bool hasPrev = false;
     auto prevRecvTime = std::chrono::steady_clock::now();
     auto nextRecvTime = std::chrono::steady_clock::now();
@@ -367,12 +374,12 @@ int main() {
     auto lastServerPacketTime = std::chrono::steady_clock::now();
     bool serverConnected = false;
 
-    // (9) SFML window and visual setup (four sections for comparison)
+    // (9) SFML window and visual setup (five sections for comparison)
     sf::RenderWindow window(sf::VideoMode(1600, 900), "Advanced Netcode Demo - Visual Comparison");
     window.setFramerateLimit(60);
 
-    // Section layout (see comment at the top)
-    const float sectionWidth = 400.f;
+    // Section layout
+    const float sectionWidth = 300.f;
     const float sectionHeight = 600.f;
     const float sectionY = 200.f;
     const float dotRadius = 8.f;
@@ -382,9 +389,9 @@ int main() {
     sf::CircleShape advPredictedDot(dotRadius);   advPredictedDot.setFillColor(sf::Color::Magenta);
     sf::CircleShape interpDot(dotRadius);         interpDot.setFillColor(sf::Color(255, 165, 0));
 
-    // Section backgrounds
-    sf::RectangleShape sections[4];
-    for (int i = 0; i < 4; ++i) {
+    // Section backgrounds (5 sections now)
+    sf::RectangleShape sections[5];
+    for (int i = 0; i < 5; ++i) {
         sections[i].setSize({ sectionWidth - 10, sectionHeight });
         sections[i].setPosition(10 + i * sectionWidth, sectionY);
         sections[i].setFillColor(sf::Color(30, 30, 30));
@@ -425,14 +432,15 @@ int main() {
     }
 
     // Section labels
-    sf::Text sectionLabels[4];
+    sf::Text sectionLabels[5];
     const char* labelTexts[] = {
         "Local Input\n(Your Position)",
         "Server State\n(Authoritative)",
         "Naive Prediction\n(Simple Extrapolation)",
-        "Advanced Prediction\n(With Reconciliation)"
+        "Advanced Prediction\n(With Reconciliation)",
+        "Interpolation\n(Smooth Between Updates)"
     };
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 5; ++i) {
         sectionLabels[i].setFont(font);
         sectionLabels[i].setString(labelTexts[i]);
         sectionLabels[i].setCharacterSize(16);
@@ -453,18 +461,6 @@ int main() {
     // Connection status text
     sf::Text statusText("", font, 16);
     statusText.setPosition(10, 120);
-
-    // Interpolation section (separate display area)
-    sf::RectangleShape interpSection;
-    interpSection.setSize({ 380, 200 });
-    interpSection.setPosition(1210, 600);
-    interpSection.setFillColor(sf::Color(30, 30, 30));
-    interpSection.setOutlineThickness(2);
-    interpSection.setOutlineColor(sf::Color(100, 100, 100));
-
-    sf::Text interpLabel("Interpolation\n(Smooth Between Updates)", font, 16);
-    interpLabel.setPosition(1220, 560);
-    interpLabel.setFillColor(sf::Color::White);
 
     std::cout << "[" << getCurrentTimestamp() << "] Client initialization complete. Starting main loop..." << std::endl;
 
@@ -648,7 +644,7 @@ int main() {
         remoteTrail.addPosition(nextPacket.x + 10 + sectionWidth, nextPacket.y + sectionY);
         naiveTrail.addPosition(naivePredicted.first + 10 + 2 * sectionWidth, naivePredicted.second + sectionY);
         advancedTrail.addPosition(advPredPos.first + 10 + 3 * sectionWidth, advPredPos.second + sectionY);
-        interpTrail.addPosition(interpX + 1220, interpY + 610);
+        interpTrail.addPosition(interpX + 10 + 4 * sectionWidth, interpY + sectionY);
 
         // k) Update live metrics text
         std::stringstream metrics;
@@ -684,12 +680,11 @@ int main() {
             naivePredicted.second + sectionY - dotRadius);
         advPredictedDot.setPosition(advPredPos.first + 10 + 3 * sectionWidth - dotRadius,
             advPredPos.second + sectionY - dotRadius);
-        interpDot.setPosition(interpX + 1220 - dotRadius, interpY + 610 - dotRadius);
+        interpDot.setPosition(interpX + 10 + 4 * sectionWidth - dotRadius, interpY + sectionY - dotRadius);
 
         // n) Render all visualization layers
         window.clear(sf::Color(20, 20, 20));
-        for (int i = 0; i < 4; ++i) window.draw(sections[i]);
-        window.draw(interpSection);
+        for (int i = 0; i < 5; ++i) window.draw(sections[i]);
 
         localTrail.draw(window);
         remoteTrail.draw(window);
@@ -701,18 +696,17 @@ int main() {
         window.draw(remoteDot);
         window.draw(naivePredictedDot);
         window.draw(advPredictedDot);
-        if (hasPrev) window.draw(interpDot);
+        window.draw(interpDot);
 
         if (fontLoaded) {
-            for (int i = 0; i < 4; ++i) window.draw(sectionLabels[i]);
-            window.draw(interpLabel);
+            for (int i = 0; i < 5; ++i) window.draw(sectionLabels[i]);
             window.draw(metricsText);
             window.draw(statusText);
             window.draw(instructionsText);
         }
 
         // Draw vertical dividers
-        for (int i = 1; i < 4; ++i) {
+        for (int i = 1; i < 5; ++i) {
             sf::VertexArray line(sf::Lines, 2);
             line[0].position = sf::Vector2f(i * sectionWidth + 5, sectionY);
             line[1].position = sf::Vector2f(i * sectionWidth + 5, sectionY + sectionHeight);
