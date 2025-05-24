@@ -13,7 +13,7 @@
  *
  * This separation keeps prediction logic reusable, testable, and easy to extend.
  *
- * @author Aryan Malekian
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 23.05.2025
  */
 
