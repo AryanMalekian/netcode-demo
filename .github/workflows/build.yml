@@ -23,7 +23,7 @@ jobs:
             vcpkg\buildtrees
             vcpkg\downloads
             vcpkg\packages
-            ${{ github.workspace }}\vcpkg_installed
+            ${{ github.workspace }}\vcpkg_cache
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-
@@ -32,6 +32,11 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\vcpkg_cache"
+          if (Test-Path "${{ github.workspace }}\vcpkg_cache\*.nupkg") {
+            Write-Host "✅ vcpkg binary cache found, packages will be restored quickly"
+          } else {
+            Write-Host "Installing vcpkg dependencies..."
+          }
           .\vcpkg\vcpkg.exe install --triplet x64-windows
         env:
           VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
