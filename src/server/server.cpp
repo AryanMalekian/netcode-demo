@@ -3,12 +3,13 @@
  * @brief Cross-platform UDP server for network programming project.
  *
  * Listens for UDP packets from clients on port 54000,
- * decodes each packet, prints its contents, and echoes it back to the sender.
+ * decodes each packet, processes input commands, and sends back authoritative game state.
  *
  * Demonstrates:
  * - Use of Winsock (on Windows) or BSD sockets (on macOS/Linux) for raw UDP communication
  * - Serialization/deserialization of custom packet types (see Packet in packet.hpp)
- * - Stateless server loop suitable for multiplayer games or real-time netcode
+ * - Authoritative server-side game simulation for multiplayer games
+ * - Client input processing and server-side physics
  * - Robust error handling and packet validation
  *
  * Program flow:
@@ -19,13 +20,13 @@
  *    a. Wait for incoming packets (recvfrom)
  *    b. Deserialize the buffer into a Packet struct
  *    c. Validate packet contents for security
- *    d. Print the packet contents to the console
- *    e. Echo the same packet back to the client (sendto)
+ *    d. Process input commands and update server-side player state
+ *    e. Send back authoritative player position to the client (sendto)
  * 5. Cleanup resources on shutdown (closesocket/WSACleanup on Windows, close() on Unix)
  *
  * This code is portable and will compile and run on both Windows and Unix-like systems.
  *
- * @author Aryan Malekian
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 20.05.2025
  */
 
@@ -48,7 +49,24 @@ typedef int socket_t;
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <unordered_map>
+#include <cmath>
+#include <algorithm>
 #include "netcode/common/packet.hpp"
+
+/**
+ * @struct ClientState
+ * @brief Server-side state for each connected client
+ */
+struct ClientState {
+    float x, y;           // Authoritative position
+    float vx, vy;         // Current velocity  
+    uint32_t lastSeq;     // Last processed sequence number
+    std::chrono::steady_clock::time_point lastUpdate;
+
+    ClientState() : x(200.0f), y(300.0f), vx(0.0f), vy(0.0f), lastSeq(0),
+        lastUpdate(std::chrono::steady_clock::now()) {}
+};
 
 /**
  * @brief Prints detailed error information for socket operations.
@@ -81,7 +99,6 @@ void printSocketError(const char* operation) {
     int error = errno;
     std::cerr << operation << " failed with error: " << strerror(error) << " (" << error << ")";
 
-    // Additional context for common Unix errors
     switch (error) {
     case EADDRINUSE:
         std::cerr << " - Port 54000 is already in use";
@@ -111,12 +128,10 @@ std::string getCurrentTimestamp() {
 
     std::stringstream ss;
 #ifdef _WIN32
-    // Use thread-safe localtime_s on Windows
     struct tm timeinfo;
     localtime_s(&timeinfo, &time_t);
     ss << std::put_time(&timeinfo, "%H:%M:%S");
 #else
-    // Use localtime on Unix systems
     ss << std::put_time(std::localtime(&time_t), "%H:%M:%S");
 #endif
     ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
@@ -154,8 +169,8 @@ int main() {
     // (3) Prepare the server address struct and bind the socket to port 54000
     sockaddr_in serverAddr{};
     serverAddr.sin_family = AF_INET;
-    serverAddr.sin_addr.s_addr = INADDR_ANY;   // Listen on all local interfaces
-    serverAddr.sin_port = htons(54000);        // Convert port number to network byte order
+    serverAddr.sin_addr.s_addr = INADDR_ANY;   
+    serverAddr.sin_port = htons(54000);        
 
     if (bind(sock, (sockaddr*)&serverAddr, sizeof(serverAddr))
 #ifdef _WIN32
@@ -176,6 +191,7 @@ int main() {
 
     std::cout << "[" << getCurrentTimestamp() << "] Server bound to port 54000 and listening..." << std::endl;
     std::cout << "Waiting for client connections..." << std::endl;
+    std::cout << "Server Mode: AUTHORITATIVE (processes input and sends back game state)" << std::endl;
 
     // (4) Buffer and address storage for incoming packets
     char buf[static_cast<int>(Packet::size())];
@@ -186,25 +202,29 @@ int main() {
     socklen_t clientAddrSize = sizeof(clientAddr);
 #endif
 
-    // Statistics tracking
     uint64_t totalPacketsReceived = 0;
     uint64_t validPacketsProcessed = 0;
     uint64_t invalidPacketsDropped = 0;
 
-    // (5) Main server loop: receive, process, and echo packets
+    // Client state management
+    std::unordered_map<uint32_t, ClientState> clients; 
+
+    // Server constants
+    const float MOVE_SPEED = 120.0f;        
+    const float BOUNDS_MIN = 30.0f;         
+    const float BOUNDS_MAX = 310.0f;        
+
+    // (5) Main server loop: receive, process input, simulate, and send authoritative state
     while (true) {
-        // Reset client address size for each receive
         clientAddrSize = sizeof(clientAddr);
 
-        // Wait for a UDP packet from any client
         int bytes = recvfrom(sock, buf, static_cast<int>(Packet::size()), 0,
             (sockaddr*)&clientAddr, &clientAddrSize);
 
         if (bytes < 0) {
-            // Handle receive errors
 #ifdef _WIN32
             int error = WSAGetLastError();
-            if (error != WSAEWOULDBLOCK) {  // Would block is not an error for non-blocking sockets
+            if (error != WSAEWOULDBLOCK) {  
                 printSocketError("recvfrom");
             }
 #else
@@ -217,7 +237,6 @@ int main() {
 
         totalPacketsReceived++;
 
-        // Check if we received the correct packet size
         if (bytes != static_cast<int>(Packet::size())) {
             std::cerr << "[" << getCurrentTimestamp() << "] WARNING: Received packet with invalid size: "
                 << bytes << " bytes (expected " << Packet::size() << " bytes). Packet dropped." << std::endl;
@@ -226,52 +245,82 @@ int main() {
         }
 
         // Deserialize the packet
-        Packet p;
-        p.deserialize(buf);
+        Packet inputPacket;
+        inputPacket.deserialize(buf);
 
-        // Validate packet contents for security and correctness
-        if (!p.isValid()) {
+        // Basic packet validation
+        if (inputPacket.seq == 0) {
             char clientIP[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
             std::cerr << "[" << getCurrentTimestamp() << "] WARNING: Invalid packet received from "
                 << clientIP << ":" << ntohs(clientAddr.sin_port)
-                << " (seq=" << p.seq << " x=" << p.x << " y=" << p.y
-                << " vx=" << p.vx << " vy=" << p.vy << "). Packet dropped." << std::endl;
+                << " (seq=0). Packet dropped." << std::endl;
             invalidPacketsDropped++;
             continue;
         }
 
         validPacketsProcessed++;
 
-        // Get client IP for logging
-        char clientIP[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
+        uint32_t clientId = clientAddr.sin_addr.s_addr;
 
-        // Print packet details for debugging/logging
-        std::cout << "[" << getCurrentTimestamp() << "] Received from " << clientIP << ":" << ntohs(clientAddr.sin_port)
-            << " seq=" << p.seq << " x=" << std::fixed << std::setprecision(2) << p.x
-            << " y=" << p.y << " vx=" << p.vx << " vy=" << p.vy << std::endl;
+        auto& client = clients[clientId];
+        auto now = std::chrono::steady_clock::now();
 
-        // Echo the same packet data back to the sender
+        if (inputPacket.seq > client.lastSeq) {
+            float dt = std::chrono::duration<float>(now - client.lastUpdate).count();
+            dt = std::clamp(dt, 0.0f, 0.1f); // Sanity check: max 100ms per frame
+
+            float inputX = std::clamp(inputPacket.x, -1.0f, 1.0f);
+            float inputY = std::clamp(inputPacket.y, -1.0f, 1.0f);
+
+            client.vx = inputX * MOVE_SPEED;
+            client.vy = inputY * MOVE_SPEED;
+
+            client.x += client.vx * dt;
+            client.y += client.vy * dt;
+
+            client.x = std::clamp(client.x, BOUNDS_MIN, BOUNDS_MAX);
+            client.y = std::clamp(client.y, BOUNDS_MIN, BOUNDS_MAX);
+
+            client.lastSeq = inputPacket.seq;
+            client.lastUpdate = now;
+
+            char clientIP[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
+
+            std::cout << "[" << getCurrentTimestamp() << "] Processed input from " << clientIP << ":" << ntohs(clientAddr.sin_port)
+                << " seq=" << inputPacket.seq << " input=(" << std::fixed << std::setprecision(2)
+                << inputX << "," << inputY << ") -> pos=(" << client.x << "," << client.y << ")" << std::endl;
+        }
+
+        Packet responsePacket;
+        responsePacket.seq = inputPacket.seq;  // Echo back the sequence number for reconciliation
+        responsePacket.x = client.x;           // Server's authoritative position
+        responsePacket.y = client.y;
+        responsePacket.vx = client.vx;         // Server's computed velocity
+        responsePacket.vy = client.vy;
+
+        responsePacket.serialize(buf);
         int sentBytes = sendto(sock, buf, static_cast<int>(Packet::size()), 0,
             (sockaddr*)&clientAddr, clientAddrSize);
 
         if (sentBytes < 0) {
             printSocketError("sendto");
-            // Continue processing other packets even if send fails
         }
         else if (sentBytes != static_cast<int>(Packet::size())) {
+            char clientIP[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &clientAddr.sin_addr, clientIP, INET_ADDRSTRLEN);
             std::cerr << "[" << getCurrentTimestamp() << "] WARNING: Partial send to " << clientIP
                 << " (" << sentBytes << "/" << Packet::size() << " bytes)" << std::endl;
         }
 
-        // Print statistics every 100 packets
         if (totalPacketsReceived % 100 == 0) {
             double validRate = (double)validPacketsProcessed / totalPacketsReceived * 100.0;
             std::cout << "[" << getCurrentTimestamp() << "] Statistics: "
                 << totalPacketsReceived << " total, "
                 << validPacketsProcessed << " valid (" << std::setprecision(1) << validRate << "%), "
-                << invalidPacketsDropped << " dropped" << std::endl;
+                << invalidPacketsDropped << " dropped, "
+                << clients.size() << " active clients" << std::endl;
         }
     }
 
