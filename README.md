@@ -151,8 +151,10 @@ cd build/bin/Release
 
 ### 3. Kontroller
 - **Piltaster**: Beveg objektet
+- **Velg latency**: Tast 1, 2, 3, 4 eller 5 for å velge ulike latency nivåer (5-450ms)
 - **C**: Nullstill alle movement traces
 - **Lukk vindu**: Avslutt programmet
+
 
 ### 4. Observasjon
 Følg de fem fargede prikkene som viser forskjellige prediction-metoder. Live metrics vises øverst i vinduet med FPS, RTT, packet loss og buffer status.
