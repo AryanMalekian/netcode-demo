@@ -38,10 +38,6 @@ find_package(SFML 2.5 REQUIRED COMPONENTS graphics window system network)
 set(SFML_LIBRARIES sfml-graphics sfml-window sfml-system sfml-network)
 set(SFML_INCLUDE_DIRS ${SFML_INCLUDE_DIR})
 
-# Include custom modules (only if the file exists)
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CompilerWarnings.cmake")
-    include(CompilerWarnings)
-endif()
 
 # Optional: Find Doxygen for documentation (only if BUILD_DOCS is enabled)
 if(BUILD_DOCS)

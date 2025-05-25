@@ -26,8 +26,6 @@ target_compile_features(netcode-server
         cxx_std_17
 )
 
-# Apply warning settings
-set_project_warnings(netcode-server)
 
 # Set target properties
 set_target_properties(netcode-server PROPERTIES

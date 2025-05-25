@@ -35,16 +35,11 @@ jobs:
       - name: Install CMake
         uses: lukka/get-cmake@latest
       
-      - name: Install Ninja
-        uses: seanmiddleditch/gha-setup-ninja@v3
-      
-      - name: Configure and build
+      - name: Configure and build  
         shell: pwsh
         run: |
-          cmake -B build -S . -G Ninja `
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            -DCMAKE_BUILD_TYPE=Release
-          cmake --build build --config Release
+          cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake"
+          cmake --build build
       
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
