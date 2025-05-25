@@ -5,7 +5,7 @@
  * Tests core client functions: packet creation and simulated input velocity updates.
  * Does not test rendering or real socket communication (mock needed for that).
  *
- * @author Aryan Malekian
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 23.05.2025
  */
 

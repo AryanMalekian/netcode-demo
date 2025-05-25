@@ -1,7 +1,6 @@
-﻿name: Build (CMake + vcpkg on Windows)
+name: Build (CMake + vcpkg on Windows)
 on:
   pull_request:
-
 jobs:
   build:
     runs-on: windows-latest
@@ -19,50 +18,32 @@ jobs:
         uses: actions/cache@v3
         with:
           path: |
-            vcpkg\installed
             vcpkg\buildtrees
             vcpkg\downloads
             vcpkg\packages
+            vcpkg_installed
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-
-      
-      - name: Install dependencies via vcpkg (manifest mode)
-        shell: pwsh
-        run: |
-          if (!(Test-Path "vcpkg\installed\x64-windows\lib")) {
-            Write-Host "Installing vcpkg dependencies..."
-            .\vcpkg\vcpkg.exe install --triplet x64-windows
-          } else {
-            Write-Host "✅ vcpkg dependencies already installed from cache"
-          }
       
       - name: Install Doxygen
         shell: pwsh
         run: |
           choco install doxygen.install -y
       
-      - name: Install CMake
-        uses: lukka/get-cmake@latest
-      
-      - name: Install Ninja
-        uses: seanmiddleditch/gha-setup-ninja@v3
-      
-      - name: Configure and build
+      - name: Configure and build  
         shell: pwsh
         run: |
-          cmake -B build -S . -G Ninja `
-            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
-            -DCMAKE_BUILD_TYPE=Release
+          cmake -B build -S . -G "Visual Studio 17 2022" -A x64 -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" -DVCPKG_TARGET_TRIPLET=x64-windows
           cmake --build build --config Release
       
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build-output
           path: build/
           retention-days: 1
-
+  
   test:
     runs-on: windows-latest
     needs: build
@@ -71,7 +52,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Download build artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: build-output
           path: build/
@@ -79,4 +60,4 @@ jobs:
       - name: Run tests
         shell: pwsh
         run: |
-          ctest --test-dir build --output-on-failure
+          ctest --test-dir build --output-on-failure --build-config Release
