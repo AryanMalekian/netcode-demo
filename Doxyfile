@@ -4,9 +4,9 @@
 # Project related configuration options
 #---------------------------------------------------------------------------
 DOXYFILE_ENCODING      = UTF-8
-PROJECT_NAME           = "Advanced Netcode Demo"
+PROJECT_NAME           = "Netcode Demo"
 PROJECT_NUMBER         = "v1.0.0"
-PROJECT_BRIEF          = "Client-side prediction and server reconciliation for real-time multiplayer applications"
+PROJECT_BRIEF          = "Implemented netcode demonstration w/ visual demo, presenting several features, ranging from"
 OUTPUT_DIRECTORY       = docs/api
 CREATE_SUBDIRS         = NO
 ALLOW_UNICODE_NAMES    = NO
@@ -79,6 +79,7 @@ WARN_LOGFILE           = docs/doxygen_warnings.log
 # Configuration options related to the input files
 #---------------------------------------------------------------------------
 INPUT                  = src/ \
+                         include/ \
                          README.md
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.c \
