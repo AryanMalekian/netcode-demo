@@ -6,7 +6,7 @@
 
 ## Introduksjon
 
-Dette prosjektet implementerer netcode-teknikker for å håndtere nettverksforsinkelse og pakketap. Løsningen viser hvordan client-side prediction, input-buffering og server reconciliation kan brukes for å skape responsiv nettverksopplevelse selv med relativt høy latency.
+Dette prosjektet implementerer netcode-teknikker for å håndtere nettverksforsinkelse og pakketap. Løsningen viser hvordan client-side prediction, input-buffering og server reconciliation kan brukes for å skape responsiv nettverksopplevelse selv med høy latency. Det er mulig å velge mellom ulike latencies for å se hvordan de ulike teknikkene løser det, i en visuell demo.
 
 Prosjektet sammenligner fem forskjellige tilnærminger side-om-side:
 - **Lokal input** (grønn) - umiddelbar respons
