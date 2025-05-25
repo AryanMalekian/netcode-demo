@@ -6,7 +6,7 @@
 
 ## Introduksjon
 
-Dette prosjektet implementerer netcode-teknikker for å håndtere nettverksforsinkelse og pakketap. Løsningen viser hvordan client-side prediction, input-buffering og server reconciliation kan brukes for å skape responsiv nettverksopplevelse selv med høy latency.
+Dette prosjektet implementerer netcode-teknikker for å håndtere nettverksforsinkelse og pakketap. Løsningen viser hvordan client-side prediction, input-buffering og server reconciliation kan brukes for å skape responsiv nettverksopplevelse selv med relativt høy latency.
 
 Prosjektet sammenligner fem forskjellige tilnærminger side-om-side:
 - **Lokal input** (grønn) - umiddelbar respons
@@ -60,14 +60,17 @@ Non-blocking sockets håndteres forskjellig på hver plattform, og feilhåndteri
 
 ### Nåværende Mangler/Svakheter
 - **Server-side lag compensation** - kun echo-server implementert
-- **Flere klienter samtidig** - støtter kun én klient (men netcode-implementasjonen demonstreres likevel)
+- **Flere klienter samtidig** - støtter kun én klient
 - **Pakke-kompresjon** for båndbredde-optimalisering
+- **Delta-compression** for å redusere redundant data
 - **Adaptive prediction** basert på nettverkskvalitet
 
 ### Mulige Utvidelser
 - Prediction rollback for andre spillere
+- Autoritativ fysikk på server-side  
 - Nettverkssimulering med jitter og variable packet loss
 - Optimistisk kollisjonshåndtering
+- Bandwidth throttling simulering
 
 ## Eksterne Avhengigheter
 
@@ -80,7 +83,7 @@ Non-blocking sockets håndteres forskjellig på hver plattform, og feilhåndteri
   - Brukt til: Grafikk-rendering, vindushåndtering, input-håndtering og grunnleggende nettverksabstraksjon
   - Komponenter: sfml-graphics, sfml-window, sfml-system
 - **Catch2**: Testing framework for C++
-  - Brukt til: Unit tests, integration tests
+  - Brukt til: Unit tests, integration tests og test-rapportering
 
 ### Platform-spesifikke
 - **Winsock2** (Windows): Windows Socket API for UDP-kommunikasjon
@@ -92,6 +95,18 @@ Non-blocking sockets håndteres forskjellig på hver plattform, og feilhåndteri
 - C++17-kompatibel kompiler (MSVC 2019+, GCC 9+, Clang 10+)
 - Git
 - CMake 3.20+
+- vcpkg (global installasjon)
+
+### vcpkg Setup (hvis ikke allerede installert)
+```bash
+# Windows - installer vcpkg globalt
+git clone https://github.com/Microsoft/vcpkg.git C:\vcpkg
+C:\vcpkg\bootstrap-vcpkg.bat
+
+# Linux/macOS - installer vcpkg globalt  
+git clone https://github.com/Microsoft/vcpkg.git ~/vcpkg
+~/vcpkg/bootstrap-vcpkg.sh
+```
 
 ### Installasjon
 
@@ -100,11 +115,17 @@ Non-blocking sockets håndteres forskjellig på hver plattform, og feilhåndteri
 git clone https://github.com/aryanmalekian/netcode-demo.git
 cd netcode-demo
 
-# 2. Installer dependencies
+# 2. Installer dependencies (vcpkg manifest mode)
 vcpkg install
 
 # 3. Bygg prosjektet
-cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake
+# Windows (tilpass vcpkg path til din installasjon)
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+
+# Linux/macOS  
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="~/vcpkg/scripts/buildsystems/vcpkg.cmake"
+
+# Bygg
 cmake --build build --config Release
 ```
 
@@ -169,7 +190,7 @@ cd bin/Release
 .\netcode_tests.exe "[server]"         # Server tester
 ```
 
-Test coverage dekker ca. (+-)80% av core-funksjonaliteten (ekskluderer SFML rendering og socket operasjoner). Dette er bare et estimat.
+Test coverage dekker ca. 80% av core-funksjonaliteten (ekskluderer SFML rendering og socket operasjoner).
 
 ## API Dokumentasjon
 
