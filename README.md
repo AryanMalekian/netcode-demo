@@ -15,16 +15,16 @@ Prosjektet sammenligner fem forskjellige tilnærminger side-om-side:
 - **Prediction med reconciliation** (magenta) - korrigerer feilpredictions
 - **Interpolation** (oransje) - jevn mellom server-oppdateringer
 
-**Utviklingsnotater:** Den tekniske implementasjonen (kode) er utviklet i samarbeid med AI-modeller (Claude og ChatGPT), mens alle arkitekturale beslutninger, designvalg, prioriteringer og implementasjonsstrategi er tatt av forfatteren.
+**MERK!:** Den tekniske implementasjonen (kode) er utviklet i samarbeid med AI-modeller (Claude og ChatGPT), mens  arkitekturale beslutninger, designvalg, prioriteringer og DELVIS implementasjonsstrategi er tatt av forfatteren.
 
 ## Implementert Funksjonalitet
 
 ### Kjerneteknikker
-- **Multi-threading** med separerte tråder for rendering og nettverk
-- **Thread-safe kommunikasjon** via lock-free køer mellom tråder  
+- **Dual-threaded architecture** med Producer-Consumer pattern
+- **Thread-safe message passing** via `ThreadSafeQueue<Packet>` mellom tråder  
 - **Client-side prediction** med input-buffering og rollback
 - **Server reconciliation** for å korrigere feilpredictions
-- **Kunstig nettverksforsinkelse** for realistisk testing (80-180ms)
+- **Artificial network delay simulation** for realistisk testing (80-180ms randomized)
 - **Linear interpolation** mellom server states
 
 ### Visualisering og Metrics
@@ -60,17 +60,14 @@ Non-blocking sockets håndteres forskjellig på hver plattform, og feilhåndteri
 
 ### Nåværende Mangler/Svakheter
 - **Server-side lag compensation** - kun echo-server implementert
-- **Flere klienter samtidig** - støtter kun én klient
+- **Flere klienter samtidig** - støtter kun én klient (men netcode-implementasjonen demonstreres likevel)
 - **Pakke-kompresjon** for båndbredde-optimalisering
-- **Delta-compression** for å redusere redundant data
 - **Adaptive prediction** basert på nettverkskvalitet
 
 ### Mulige Utvidelser
 - Prediction rollback for andre spillere
-- Autoritativ fysikk på server-side  
 - Nettverkssimulering med jitter og variable packet loss
 - Optimistisk kollisjonshåndtering
-- Bandwidth throttling simulering
 
 ## Eksterne Avhengigheter
 
@@ -83,7 +80,7 @@ Non-blocking sockets håndteres forskjellig på hver plattform, og feilhåndteri
   - Brukt til: Grafikk-rendering, vindushåndtering, input-håndtering og grunnleggende nettverksabstraksjon
   - Komponenter: sfml-graphics, sfml-window, sfml-system
 - **Catch2**: Testing framework for C++
-  - Brukt til: Unit tests, integration tests og test-rapportering
+  - Brukt til: Unit tests, integration tests
 
 ### Platform-spesifikke
 - **Winsock2** (Windows): Windows Socket API for UDP-kommunikasjon
@@ -172,7 +169,7 @@ cd bin/Release
 .\netcode_tests.exe "[server]"         # Server tester
 ```
 
-Test coverage dekker ca. 80% av core-funksjonaliteten (ekskluderer SFML rendering og socket operasjoner).
+Test coverage dekker ca. (+-)80% av core-funksjonaliteten (ekskluderer SFML rendering og socket operasjoner). Dette er bare et estimat.
 
 ## API Dokumentasjon
 
@@ -208,13 +205,13 @@ src/                      # Implementasjoner
 tests/                    # Test-kode organisert etter komponent
 ```
 
-### Flertrådet Design
-- **Hovedtråd**: Håndterer rendering, input og spilllogikk (60 FPS)
-- **Nettverkstråd**: Behandler all UDP-kommunikasjon uavhengig
-- **Tråd-sikre køer**: Lock-free kommunikasjon mellom tråder uten blocking
-- **Kunstig forsinkelsessimulering**: Separate delay-simulatorer per tråd
+### Dual-Threaded Design
+- **Hovedtråd**: Håndterer rendering, input og game logic (60 FPS)
+- **Dedikert nettverkstråd**: Behandler all UDP-kommunikasjon asynkront
+- **Thread-safe message queues**: Producer-Consumer pattern med `ThreadSafeQueue<Packet>`
+- **Artificial delay simulation**: Separate DelaySimulator instances per tråd
 
-Kommunikasjon mellom tråder skjer via `ThreadSafeQueue<Packet>` med mutex-beskyttelse og size-begrensninger for å unngå minneproblemer.
+Kommunikasjon mellom tråder skjer via thread-safe køer med mutex-beskyttelse og size-begrensninger for å unngå minneproblemer.
 
 ### Prediction Algorithm
 Implementerer moderne netcode-prinsipper:
