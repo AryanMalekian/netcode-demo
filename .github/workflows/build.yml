@@ -1,8 +1,9 @@
-name: Debug Cache Structure
-on: [push, pull_request]
+name: Build (CMake + vcpkg on Windows)
+on:
+  pull_request:
 
 jobs:
-  debug:
+  build:
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -22,61 +23,58 @@ jobs:
             vcpkg\buildtrees
             vcpkg\downloads
             vcpkg\packages
+            ${{ github.workspace }}\vcpkg_installed
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-
-      
-      - name: DEBUG - Show cache structure
-        shell: pwsh
-        run: |
-          Write-Host "=== CACHE STRUCTURE DEBUG ==="
-          Write-Host "Current directory contents:"
-          Get-ChildItem . -Name
-          Write-Host ""
-          
-          if (Test-Path "vcpkg") {
-            Write-Host "vcpkg directory exists"
-            Write-Host "vcpkg contents:"
-            Get-ChildItem "vcpkg" -Name
-            Write-Host ""
-            
-            if (Test-Path "vcpkg\installed") {
-              Write-Host "vcpkg\installed exists"
-              Write-Host "vcpkg\installed contents:"
-              Get-ChildItem "vcpkg\installed" -Name
-              Write-Host ""
-              
-              if (Test-Path "vcpkg\installed\x64-windows") {
-                Write-Host "vcpkg\installed\x64-windows exists"
-                Write-Host "vcpkg\installed\x64-windows contents:"
-                Get-ChildItem "vcpkg\installed\x64-windows" -Name -ErrorAction SilentlyContinue
-                Write-Host ""
-                
-                if (Test-Path "vcpkg\installed\x64-windows\lib") {
-                  Write-Host "✅ LIB DIRECTORY EXISTS!"
-                  Write-Host "lib contents:"
-                  Get-ChildItem "vcpkg\installed\x64-windows\lib" -Name -ErrorAction SilentlyContinue
-                } else {
-                  Write-Host "❌ lib directory does not exist"
-                }
-                
-                if (Test-Path "vcpkg\installed\x64-windows\include") {
-                  Write-Host "✅ INCLUDE DIRECTORY EXISTS!"
-                } else {
-                  Write-Host "❌ include directory does not exist"
-                }
-              } else {
-                Write-Host "❌ vcpkg\installed\x64-windows does not exist"
-              }
-            } else {
-              Write-Host "❌ vcpkg\installed does not exist"
-            }
-          } else {
-            Write-Host "❌ vcpkg directory does not exist"
-          }
-          Write-Host "=== END DEBUG ==="
       
       - name: Install dependencies via vcpkg (manifest mode)
         shell: pwsh
         run: |
           .\vcpkg\vcpkg.exe install --triplet x64-windows
+        env:
+          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
+      
+      - name: Install Doxygen
+        shell: pwsh
+        run: |
+          choco install doxygen.install -y
+      
+      - name: Install CMake
+        uses: lukka/get-cmake@latest
+      
+      - name: Install Ninja
+        uses: seanmiddleditch/gha-setup-ninja@v3
+      
+      - name: Configure and build
+        shell: pwsh
+        run: |
+          cmake -B build -S . -G Ninja `
+            -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: build/
+          retention-days: 1
+
+  test:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-output
+          path: build/
+      
+      - name: Run tests
+        shell: pwsh
+        run: |
+          ctest --test-dir build --output-on-failure
