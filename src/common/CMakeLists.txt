@@ -32,8 +32,6 @@ target_compile_features(netcode-common
         cxx_std_17
 )
 
-# Apply warning settings
-set_project_warnings(netcode-common)
 
 # Set target properties
 set_target_properties(netcode-common PROPERTIES
