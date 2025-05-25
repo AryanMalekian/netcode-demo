@@ -10,6 +10,7 @@
  * - **Multithreaded architecture**: Separate network thread for sending/receiving packets
  * - **Thread-safe communication**: Lock-free queues for inter-thread packet exchange
  * - **Artificial network delay simulation** (both outbound and inbound)
+ * - **Latency preset selection**: Choose from predefined network conditions for demonstration
  * - Use of a compact, serializable Packet struct for network communication
  * - **Naive prediction**: simple linear extrapolation for client-side prediction
  * - **Advanced prediction**: input buffering, replay, and server reconciliation with PredictionSystem
@@ -18,12 +19,16 @@
  * - **Live performance metrics**: FPS, RTT, packet loss, and buffered input count shown live in the window
  * - **Sectioned visualization**: Simultaneous side-by-side comparison of local, server, naive-predicted, and advanced-predicted positions
  * - **Trail visualization**: Each dot leaves a faded trail to show movement history and delay effects
- * - **Interactive UI**: Press [C] to clear all trails. Arrow keys move the local object.
+ * - **Interactive UI**: Press [C] to clear all trails. Arrow keys move the local object. Number keys select latency presets.
  * - **Robust error handling**: Comprehensive validation and error reporting
+ *
+ * NEW CONTROLS:
+ *   - 1-5: Select latency preset
+ *   - C: Clear trails
  *
  * Visualization legend:
  *   - Section 1: Local input (green)
- *   - Section 2: Server state (red)
+ *   - Section 2: Server state (red) - AUTHORITATIVE TRUTH
  *   - Section 3: Naive prediction (blue)
  *   - Section 4: Advanced prediction (magenta)
  *   - Section 5: Interpolation (orange)
@@ -32,9 +37,7 @@
  *   - Main thread: Handles rendering, input, and game logic at 60 FPS
  *   - Network thread: Manages all UDP communication independently
  *   - Communication via thread-safe queues ensures no blocking between threads
- *
- * This version is suitable for educational and research use in real-time multiplayer networking and latency compensation.
- *
+ * 
  * @author Aryan Malekian w/ use of A.I. Models
  * @date 23.05.2025
  */
@@ -67,12 +70,63 @@ typedef int socket_t;
 #include <atomic>
 #include <mutex>
 #include <queue>
+#include <algorithm>
 #include "netcode/common/packet.hpp"
 #include "netcode/common/prediction.hpp"
 #include "netcode/common/interpolation.hpp"
 #include "netcode/common/input.hpp"
 
 #include <SFML/Graphics.hpp>
+
+// -----------------------------------------------------------------------------
+// Latency preset system
+
+/**
+ * @struct LatencyPreset
+ * @brief Predefined latency configurations for demonstration purposes
+ */
+struct LatencyPreset {
+    std::string name;
+    int minDelay;
+    int maxDelay;
+    sf::Color displayColor;
+
+    LatencyPreset(const std::string& n, int min, int max, sf::Color color)
+        : name(n), minDelay(min), maxDelay(max), displayColor(color) {}
+};
+
+/**
+ * @class LatencyPresetManager
+ * @brief Manages predefined latency presets for easy network condition comparison
+ */
+class LatencyPresetManager {
+public:
+    std::vector<LatencyPreset> presets;
+    std::atomic<int> currentPresetIndex{ 2 }; // Start with "Normal" preset
+
+    LatencyPresetManager() {
+        presets.emplace_back("5-15ms (LAN)", 5, 15, sf::Color::Green);
+        presets.emplace_back("30-60ms (Fast)", 30, 60, sf::Color::Cyan);
+        presets.emplace_back("80-180ms (Normal)", 80, 180, sf::Color::White);
+        presets.emplace_back("150-300ms (Slow)", 150, 300, sf::Color::Yellow);
+        presets.emplace_back("250-450ms (Bad)", 250, 450, sf::Color(255, 165, 0)); // Orange
+    }
+
+    void selectPreset(int index) {
+        if (index >= 0 && index < static_cast<int>(presets.size())) {
+            currentPresetIndex = index;
+        }
+    }
+
+    const LatencyPreset& getCurrentPreset() const {
+        return presets[currentPresetIndex.load()];
+    }
+
+    std::pair<int, int> getCurrentDelayRange() const {
+        const auto& preset = getCurrentPreset();
+        return { preset.minDelay, preset.maxDelay };
+    }
+};
 
 // -----------------------------------------------------------------------------
 // Thread-safe packet queue for inter-thread communication
@@ -86,7 +140,7 @@ class ThreadSafeQueue {
 private:
     mutable std::mutex mutex_;
     std::queue<T> queue_;
-    size_t maxSize_ = 1000;  // Prevent unbounded growth
+    size_t maxSize_ = 1000;  
 
 public:
     void push(const T& item) {
@@ -158,7 +212,6 @@ void printSocketError(const char* operation) {
         break;
     case EWOULDBLOCK:
     case EAGAIN:
-        // This is normal for non-blocking sockets, don't print error
         return;
     default:
         break;
@@ -179,12 +232,10 @@ std::string getCurrentTimestamp() {
 
     std::stringstream ss;
 #ifdef _WIN32
-    // Use thread-safe localtime_s on Windows
     struct tm timeinfo;
     localtime_s(&timeinfo, &time_t);
     ss << std::put_time(&timeinfo, "%H:%M:%S");
 #else
-    // Use localtime on Unix systems
     ss << std::put_time(std::localtime(&time_t), "%H:%M:%S");
 #endif
     ss << '.' << std::setfill('0') << std::setw(3) << ms.count();
@@ -193,10 +244,6 @@ std::string getCurrentTimestamp() {
 
 // -----------------------------------------------------------------------------
 // Artificial network delay simulation utilities
-
-/// @brief Minimum and maximum artificial delay in milliseconds for simulated network lag.
-constexpr int MIN_DELAY_MS = 80;
-constexpr int MAX_DELAY_MS = 180;
 
 /**
  * @brief Represents a packet scheduled for delayed send/receive to simulate network lag.
@@ -218,11 +265,11 @@ struct DelayedPacket {
 class DelaySimulator {
     std::deque<DelayedPacket> queue;
     std::mt19937 rng;
-    std::uniform_int_distribution<int> dist;
     mutable std::mutex mutex_;
+    LatencyPresetManager& presetManager; 
 
 public:
-    DelaySimulator() : rng(std::random_device{}()), dist(MIN_DELAY_MS, MAX_DELAY_MS) {}
+    DelaySimulator(LatencyPresetManager& manager) : rng(std::random_device{}()), presetManager(manager) {}
 
     /**
      * @brief Schedules a packet to be released after a random network delay.
@@ -233,6 +280,8 @@ public:
      */
     void send(const char* buf, size_t len, sockaddr_in addr, int addrlen) {
         std::lock_guard<std::mutex> lock(mutex_);
+        auto delayRange = presetManager.getCurrentDelayRange(); 
+        std::uniform_int_distribution<int> dist(delayRange.first, delayRange.second);
         int delay = dist(rng);
         auto release = std::chrono::steady_clock::now() + std::chrono::milliseconds(delay);
         queue.emplace_back(buf, len, addr, addrlen, release);
@@ -260,7 +309,6 @@ public:
         return false;
     }
 
-    /// @brief Clears all buffered packets (for debugging or tests)
     void clear() {
         std::lock_guard<std::mutex> lock(mutex_);
         queue.clear();
@@ -323,7 +371,6 @@ public:
         }
     }
 
-    /// @brief Clears the trail.
     void clear() { positions.clear(); }
 };
 
@@ -338,6 +385,7 @@ public:
  * @param incomingQueue Queue for received packets
  * @param running Flag to control thread lifecycle
  * @param stats Shared statistics structure
+ * @param presetManager Latency preset manager for dynamic delay control
  */
 struct NetworkStats {
     std::atomic<int> packetsSent{ 0 };
@@ -353,9 +401,9 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
     ThreadSafeQueue<Packet>& outgoingQueue,
     ThreadSafeQueue<Packet>& incomingQueue,
     std::atomic<bool>& running,
-    NetworkStats& stats) {
+    NetworkStats& stats,
+    LatencyPresetManager& presetManager) { 
 
-    // Buffers for sending/receiving
     char buf[Packet::size()];
     sockaddr_in fromAddr;
 #ifdef _WIN32
@@ -364,9 +412,8 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
     socklen_t fromSize = sizeof(fromAddr);
 #endif
 
-    // Delay simulators (thread-local)
-    DelaySimulator outgoingDelay;
-    DelaySimulator incomingDelay;
+    DelaySimulator outgoingDelay(presetManager);
+    DelaySimulator incomingDelay(presetManager);
 
     auto lastSendTime = std::chrono::steady_clock::now();
 
@@ -375,7 +422,6 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
     while (running) {
         auto now = std::chrono::steady_clock::now();
 
-        // Process outgoing packets from queue
         Packet outPacket;
         if (outgoingQueue.pop(outPacket)) {
             outPacket.serialize(buf);
@@ -383,7 +429,6 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
             lastSendTime = now;
         }
 
-        // Send delayed packets
         sockaddr_in delayedAddr;
         int delayedAddrLen;
         char delayedBuf[Packet::size()];
@@ -399,7 +444,6 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
             }
         }
 
-        // Receive packets
         int bytes = recvfrom(sock, buf, static_cast<int>(Packet::size()), 0,
             (sockaddr*)&fromAddr, &fromSize);
         if (bytes == static_cast<int>(Packet::size())) {
@@ -409,7 +453,6 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
             stats.invalidPacketsReceived++;
         }
 
-        // Process delayed incoming packets
         sockaddr_in incomingAddr;
         int incomingAddrLen;
         char incomingBuf[Packet::size()];
@@ -421,12 +464,10 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
                 incomingQueue.push(receivedPacket);
                 stats.packetsReceived++;
 
-                // Update RTT
                 float rtt = std::chrono::duration<float>(now - lastSendTime).count() * 1000.0f;
                 float currentAvg = stats.avgRTT.load();
                 stats.avgRTT = currentAvg * 0.9f + rtt * 0.1f;
 
-                // Update last packet time
                 {
                     std::lock_guard<std::mutex> lock(stats.timeMutex);
                     stats.lastServerPacketTime = now;
@@ -437,7 +478,6 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
             }
         }
 
-        // Small sleep to prevent CPU spinning
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
 
@@ -509,11 +549,12 @@ int main() {
     ThreadSafeQueue<Packet> incomingPackets;
     std::atomic<bool> networkThreadRunning{ true };
     NetworkStats networkStats;
+    LatencyPresetManager presetManager; // Latency preset manager
 
-    // (5) Start network thread
+    // (5) Start network thread - Pass preset manager
     std::thread netThread(networkThread, sock, servAddr,
         std::ref(outgoingPackets), std::ref(incomingPackets),
-        std::ref(networkThreadRunning), std::ref(networkStats));
+        std::ref(networkThreadRunning), std::ref(networkStats), std::ref(presetManager));
 
     std::cout << "[" << getCurrentTimestamp() << "] Network thread started" << std::endl;
 
@@ -537,29 +578,29 @@ int main() {
     auto prevRecvTime = std::chrono::steady_clock::now();
     auto nextRecvTime = std::chrono::steady_clock::now();
 
-    // (9) SFML window and visual setup (five sections for comparison)
-    sf::RenderWindow window(sf::VideoMode(1600, 900), "Advanced Netcode Demo - Multithreaded");
+    // (9) SFML window and visual setup (five sections for comparison) - Better spacing and readability
+    sf::RenderWindow window(sf::VideoMode(1800, 1000), "Advanced Netcode Demo - Multithreaded");
     window.setFramerateLimit(60);
 
-    // Section layout
-    const float sectionWidth = 300.f;
-    const float sectionHeight = 600.f;
-    const float sectionY = 200.f;
-    const float dotRadius = 8.f;
+    // Section layout - Better spacing
+    const float sectionWidth = 340.f;
+    const float sectionHeight = 550.f;
+    const float sectionY = 280.f;
+    const float dotRadius = 10.f;
     sf::CircleShape localDot(dotRadius);          localDot.setFillColor(sf::Color::Green);
     sf::CircleShape remoteDot(dotRadius);         remoteDot.setFillColor(sf::Color::Red);
     sf::CircleShape naivePredictedDot(dotRadius); naivePredictedDot.setFillColor(sf::Color::Blue);
     sf::CircleShape advPredictedDot(dotRadius);   advPredictedDot.setFillColor(sf::Color::Magenta);
     sf::CircleShape interpDot(dotRadius);         interpDot.setFillColor(sf::Color(255, 165, 0));
 
-    // Section backgrounds (5 sections now)
+    // Section backgrounds (5 sections now) - Better spacing
     sf::RectangleShape sections[5];
     for (int i = 0; i < 5; ++i) {
-        sections[i].setSize({ sectionWidth - 10, sectionHeight });
-        sections[i].setPosition(10 + i * sectionWidth, sectionY);
-        sections[i].setFillColor(sf::Color(30, 30, 30));
+        sections[i].setSize({ sectionWidth - 20, sectionHeight });
+        sections[i].setPosition(20 + i * sectionWidth, sectionY);
+        sections[i].setFillColor(sf::Color(25, 25, 25));
         sections[i].setOutlineThickness(2);
-        sections[i].setOutlineColor(sf::Color(100, 100, 100));
+        sections[i].setOutlineColor(sf::Color(120, 120, 120));
     }
 
     // Movement trails
@@ -590,41 +631,70 @@ int main() {
         std::cout << "[" << getCurrentTimestamp() << "] Warning: Could not load any font file" << std::endl;
     }
 
-    // Section labels
+    // Section labels - Updated to reflect server authority
     sf::Text sectionLabels[5];
     const char* labelTexts[] = {
-        "Local Input\n(Your Position)",
-        "Server State\n(Authoritative)",
+        "Local Input\n(Immediate Response)",
+        "Server State\n(AUTHORITATIVE TRUTH)",
         "Naive Prediction\n(Simple Extrapolation)",
         "Advanced Prediction\n(With Reconciliation)",
-        "Interpolation\n(Smooth Between Updates)"
+        "Interpolation\n(Smooth Server Updates)"
     };
     for (int i = 0; i < 5; ++i) {
         sectionLabels[i].setFont(font);
         sectionLabels[i].setString(labelTexts[i]);
-        sectionLabels[i].setCharacterSize(16);
+        sectionLabels[i].setCharacterSize(18);
         sectionLabels[i].setFillColor(sf::Color::White);
-        sectionLabels[i].setPosition(10 + i * sectionWidth + 10, sectionY - 40);
+        sectionLabels[i].setPosition(30 + i * sectionWidth, sectionY - 60);
     }
 
-    // Metrics and instructions
-    sf::Text metricsText("", font, 14);
-    metricsText.setPosition(10, 10);
+    // Metrics and instructions - Larger fonts and better spacing
+    sf::Text metricsText("", font, 16);
+    metricsText.setPosition(20, 20);
     metricsText.setFillColor(sf::Color::White);
 
-    sf::Text instructionsText("", font, 14);
-    instructionsText.setPosition(10, 850);
-    instructionsText.setFillColor(sf::Color(200, 200, 200));
-    instructionsText.setString("Use Arrow Keys to move | Press C to clear trails | Multithreaded networking demonstration");
+    sf::Text instructionsText("", font, 16);
+    instructionsText.setPosition(20, 910);
+    instructionsText.setFillColor(sf::Color(220, 220, 220));
+    instructionsText.setString("Arrow Keys: move | C: clear trails | 1-5: Select latency preset | Multithreaded networking demonstration");
 
-    // Connection status text
-    sf::Text statusText("", font, 16);
-    statusText.setPosition(10, 120);
+    // Connection status text - Larger font
+    sf::Text statusText("", font, 18);
+    statusText.setPosition(20, 140);
 
-    // Threading info text
-    sf::Text threadingText("", font, 14);
-    threadingText.setPosition(10, 90);
+    // Threading info text - Larger font
+    sf::Text threadingText("", font, 16);
+    threadingText.setPosition(20, 110);
     threadingText.setFillColor(sf::Color::Cyan);
+
+    // Latency preset display - Larger font and better positioning
+    sf::Text latencyPresetText("", font, 18);
+    latencyPresetText.setPosition(20, 170);
+
+    // Preset selection boxes (visual indicators) - Moved to bottom area to avoid overlap
+    std::vector<sf::RectangleShape> presetBoxes;
+    std::vector<sf::Text> presetLabels;
+    const float boxWidth = 280.f;
+    const float boxHeight = 35.f;
+    const float boxSpacing = 20.f;
+    const float presetStartY = 850.f; // Moved to bottom area to avoid overlap
+
+    for (size_t i = 0; i < presetManager.presets.size(); ++i) {
+        // Create preset indicator box - Better horizontal layout for 5 presets
+        sf::RectangleShape box(sf::Vector2f(boxWidth, boxHeight));
+        box.setPosition(20 + i * (boxWidth + boxSpacing), presetStartY);
+        box.setFillColor(sf::Color(45, 45, 45));
+        box.setOutlineThickness(2);
+        box.setOutlineColor(presetManager.presets[i].displayColor);
+        presetBoxes.push_back(box);
+
+        // Create preset label - Better positioning for horizontal layout
+        sf::Text label("", font, 14);
+        label.setString(std::to_string(i + 1) + ": " + presetManager.presets[i].name);
+        label.setPosition(30 + i * (boxWidth + boxSpacing), presetStartY + 8);
+        label.setFillColor(sf::Color::White);
+        presetLabels.push_back(label);
+    }
 
     std::cout << "[" << getCurrentTimestamp() << "] Client initialization complete. Starting main loop..." << std::endl;
 
@@ -638,19 +708,30 @@ int main() {
         float frameDt = std::chrono::duration<float>(now - frameStart).count();
         frameStart = now;
 
-        // a) SFML event handling
+        // a) SFML event handling - Added preset selection
         sf::Event event;
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed)
                 window.close();
-            if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::C) {
-                // Clear all movement trails
-                localTrail.clear();
-                remoteTrail.clear();
-                naiveTrail.clear();
-                advancedTrail.clear();
-                interpTrail.clear();
-                std::cout << "[" << getCurrentTimestamp() << "] Trails cleared by user" << std::endl;
+            if (event.type == sf::Event::KeyPressed) {
+                if (event.key.code == sf::Keyboard::C) {
+                    // Clear all movement trails
+                    localTrail.clear();
+                    remoteTrail.clear();
+                    naiveTrail.clear();
+                    advancedTrail.clear();
+                    interpTrail.clear();
+                    std::cout << "[" << getCurrentTimestamp() << "] Trails cleared by user" << std::endl;
+                }
+                // Preset selection with number keys (updated for 5 presets)
+                else if (event.key.code >= sf::Keyboard::Num1 && event.key.code <= sf::Keyboard::Num5) {
+                    int presetIndex = event.key.code - sf::Keyboard::Num1;
+                    if (presetIndex < static_cast<int>(presetManager.presets.size())) {
+                        presetManager.selectPreset(presetIndex);
+                        std::cout << "[" << getCurrentTimestamp() << "] Selected latency preset: "
+                            << presetManager.getCurrentPreset().name << std::endl;
+                    }
+                }
             }
         }
 
@@ -662,7 +743,7 @@ int main() {
         }
         auto timeSinceLastPacket = std::chrono::duration<float>(now - lastServerTime).count();
         bool wasConnected = serverConnected;
-        serverConnected = (timeSinceLastPacket < 5.0f); // 5 second timeout
+        serverConnected = (timeSinceLastPacket < 10.0f); // Increased timeout for high latency presets
 
         if (wasConnected != serverConnected) {
             if (serverConnected) {
@@ -673,89 +754,95 @@ int main() {
             }
         }
 
-        // c) Gather keyboard input
+        // c) Gather keyboard input (raw input to send to server)
         float inputX = 0.0f, inputY = 0.0f;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Right))  inputX = 1.0f;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Left))   inputX = -1.0f;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Down))   inputY = 1.0f;
         if (sf::Keyboard::isKeyPressed(sf::Keyboard::Up))     inputY = -1.0f;
 
-        // d) Advanced prediction: buffer input, predict forward
-        InputCommand input(seq, inputX, inputY, frameDt);
-        advancedPrediction.applyInput(input);
-
-        // Update (applies smooth error correction if needed)
-        advancedPrediction.update(frameDt);
-        auto advPredPos = advancedPrediction.getPredictedPosition();
-        x = advPredPos.first;
-        y = advPredPos.second;
-
-        // Keep within play area bounds
-        x = std::clamp(x, 20.f, sectionWidth - 20.f);
-        y = std::clamp(y, 20.f, sectionHeight - 20.f);
-
-        auto advPredVel = advancedPrediction.getPredictedVelocity();
-        float vx = advPredVel.first;
-        float vy = advPredVel.second;
-
-        // e) Send packet to network thread (with rate limiting)
+        // d) Send RAW INPUT to server (server decides position, not client)
         auto timeSinceLastSend = std::chrono::duration<float>(now - lastSendTime).count();
-        if (timeSinceLastSend >= 0.033f && !advancedPrediction.shouldThrottle()) {  // ~30Hz send rate
-            Packet p{ seq++, x, y, vx, vy };
+        if (timeSinceLastSend >= 0.033f) {  // ~30Hz send rate
+            // Send input commands to server, not position
+            Packet inputPacket{ seq++, inputX, inputY, 0, 0 }; // Use x,y fields for input, vx,vy unused for now
 
             // Validate packet before sending
-            if (p.isValid()) {
-                outgoingPackets.push(p);
+            if (inputPacket.seq > 0) { // Simple validation
+                outgoingPackets.push(inputPacket);
                 lastSendTime = now;
             }
         }
 
-        // f) Process incoming packets from network thread
-        Packet receivedPacket;
-        while (incomingPackets.pop(receivedPacket)) {
+        // e) LOCAL INPUT: Apply input immediately for responsive feel (green dot)
+        const float MOVE_SPEED = 120.0f;
+        float localVx = inputX * MOVE_SPEED;
+        float localVy = inputY * MOVE_SPEED;
+        x += localVx * frameDt;
+        y += localVy * frameDt;
+
+        // Keep local position within bounds
+        x = std::clamp(x, 30.f, sectionWidth - 30.f);
+        y = std::clamp(y, 30.f, sectionHeight - 30.f);
+
+        // f) ADVANCED PREDICTION: Apply input to prediction system
+        InputCommand input(seq - 1, inputX, inputY, frameDt); // Use last sent sequence
+        advancedPrediction.applyInput(input);
+        advancedPrediction.update(frameDt);
+        auto advPredPos = advancedPrediction.getPredictedPosition();
+
+        // g) Process incoming packets from server (SERVER IS AUTHORITATIVE)
+        Packet serverPacket;
+        while (incomingPackets.pop(serverPacket)) {
             prevPacket = nextPacket;
             prevRecvTime = nextRecvTime;
 
-            nextPacket = receivedPacket;
+            nextPacket = serverPacket;
             nextRecvTime = now;
             hasPrev = true;
 
+            // Server packet contains AUTHORITATIVE position - this is the truth!
+            // Advanced prediction system reconciles with this authoritative state
             advancedPrediction.reconcileWithServer(nextPacket);
         }
 
-        // g) Naive prediction: simple extrapolation from last server packet
+        // h) Naive prediction: simple extrapolation from AUTHORITATIVE server packet
         std::chrono::duration<float> elapsed = now - nextRecvTime;
-        auto naivePredicted = predictPosition(nextPacket, elapsed.count());
+        // Add estimated network latency to show naive prediction error
+        auto latencyPreset = presetManager.getCurrentPreset();
+        float estimatedLatency = (latencyPreset.minDelay + latencyPreset.maxDelay) / 2000.0f;
+        auto naivePredicted = predictPosition(nextPacket, elapsed.count() + estimatedLatency);
 
-        // h) Interpolation between last two server packets
+        // i) Interpolation between server packets (smooth server state visualization)
         float interpX = nextPacket.x, interpY = nextPacket.y;
         if (hasPrev) {
             std::chrono::duration<float> interval = nextRecvTime - prevRecvTime;
             std::chrono::duration<float> sinceNext = now - nextRecvTime;
-            float t = (interval.count() > 0.0001f)
-                ? (sinceNext.count() / interval.count())
-                : 0.f;
-            t = std::clamp(t, 0.f, 1.f);
-            auto interp = interpolatePosition(prevPacket, nextPacket, t);
-            interpX = interp.first;
-            interpY = interp.second;
+
+            // Interpolate forward from the last received packet
+            if (interval.count() > 0.0001f) {
+                float t = std::clamp(sinceNext.count() / interval.count(), 0.f, 2.f);
+                auto interp = interpolatePosition(prevPacket, nextPacket, t);
+                interpX = interp.first;
+                interpY = interp.second;
+            }
         }
 
-        // i) Update trails for visualization
-        localTrail.addPosition(x + 10, y + sectionY);
-        remoteTrail.addPosition(nextPacket.x + 10 + sectionWidth, nextPacket.y + sectionY);
-        naiveTrail.addPosition(naivePredicted.first + 10 + 2 * sectionWidth, naivePredicted.second + sectionY);
-        advancedTrail.addPosition(advPredPos.first + 10 + 3 * sectionWidth, advPredPos.second + sectionY);
-        interpTrail.addPosition(interpX + 10 + 4 * sectionWidth, interpY + sectionY);
+        // j) Update trails for visualization - Adjusted for new spacing
+        localTrail.addPosition(x + 30, y + sectionY);
+        remoteTrail.addPosition(nextPacket.x + 30 + sectionWidth, nextPacket.y + sectionY);
+        naiveTrail.addPosition(naivePredicted.first + 30 + 2 * sectionWidth, naivePredicted.second + sectionY);
+        advancedTrail.addPosition(advPredPos.first + 30 + 3 * sectionWidth, advPredPos.second + sectionY);
+        interpTrail.addPosition(interpX + 30 + 4 * sectionWidth, interpY + sectionY);
 
-        // j) Update live metrics text
+        // k) Update live metrics text
         std::stringstream metrics;
         metrics << std::fixed << std::setprecision(1);
-        metrics << "Network Statistics:\n";
+        metrics << "Network Statistics (Server Authoritative):\n";
         metrics << "FPS: " << (1.0f / frameDt) << " | ";
         metrics << "RTT: " << networkStats.avgRTT.load() << " ms | ";
-        metrics << "Packets Sent: " << networkStats.packetsSent.load() << " | ";
-        metrics << "Packets Received: " << networkStats.packetsReceived.load() << " | ";
+        metrics << "Input Packets Sent: " << networkStats.packetsSent.load() << " | ";
+        metrics << "Server Updates Received: " << networkStats.packetsReceived.load() << " | ";
         metrics << "Invalid Packets: " << networkStats.invalidPacketsReceived.load() << " | ";
         metrics << "Send Errors: " << networkStats.sendErrors.load() << "\n";
 
@@ -767,7 +854,7 @@ int main() {
         metrics << "Network Queue: " << outgoingPackets.size() << " out / " << incomingPackets.size() << " in";
         metricsText.setString(metrics.str());
 
-        // k) Update connection status
+        // l) Update connection status
         std::stringstream status;
         if (serverConnected) {
             status << "Status: CONNECTED to server";
@@ -784,16 +871,25 @@ int main() {
         threadInfo << "Threading: Main thread (rendering @ " << (int)(1.0f / frameDt) << " FPS) | Network thread (active)";
         threadingText.setString(threadInfo.str());
 
-        // l) Place all dots in their visual sections
-        localDot.setPosition(x + 10 - dotRadius, y + sectionY - dotRadius);
-        remoteDot.setPosition(nextPacket.x + 10 + sectionWidth - dotRadius, nextPacket.y + sectionY - dotRadius);
-        naivePredictedDot.setPosition(naivePredicted.first + 10 + 2 * sectionWidth - dotRadius,
-            naivePredicted.second + sectionY - dotRadius);
-        advPredictedDot.setPosition(advPredPos.first + 10 + 3 * sectionWidth - dotRadius,
-            advPredPos.second + sectionY - dotRadius);
-        interpDot.setPosition(interpX + 10 + 4 * sectionWidth - dotRadius, interpY + sectionY - dotRadius);
+        // Update latency preset display with current preset
+        const auto& currentPreset = presetManager.getCurrentPreset();
+        std::stringstream latencyInfo;
+        latencyInfo << "Current Network Profile: " << currentPreset.name << " | ";
+        latencyInfo << "Latency Range: " << currentPreset.minDelay << "-" <<
+            currentPreset.maxDelay << "ms";
+        latencyPresetText.setString(latencyInfo.str());
+        latencyPresetText.setFillColor(currentPreset.displayColor);
 
-        // m) Render all visualization layers
+        // m) Place all dots in their visual sections - Adjusted for new spacing
+        localDot.setPosition(x + 30 - dotRadius, y + sectionY - dotRadius);
+        remoteDot.setPosition(nextPacket.x + 30 + sectionWidth - dotRadius, nextPacket.y + sectionY - dotRadius);
+        naivePredictedDot.setPosition(naivePredicted.first + 30 + 2 * sectionWidth - dotRadius,
+            naivePredicted.second + sectionY - dotRadius);
+        advPredictedDot.setPosition(advPredPos.first + 30 + 3 * sectionWidth - dotRadius,
+            advPredPos.second + sectionY - dotRadius);
+        interpDot.setPosition(interpX + 30 + 4 * sectionWidth - dotRadius, interpY + sectionY - dotRadius);
+
+        // n) Render all visualization layers
         window.clear(sf::Color(20, 20, 20));
         for (int i = 0; i < 5; ++i) window.draw(sections[i]);
 
@@ -814,22 +910,36 @@ int main() {
             window.draw(metricsText);
             window.draw(statusText);
             window.draw(threadingText);
+            window.draw(latencyPresetText);
             window.draw(instructionsText);
+
+            // Draw preset selection boxes - Better highlighting
+            for (size_t i = 0; i < presetBoxes.size(); ++i) {
+                // Highlight current preset
+                if (static_cast<int>(i) == presetManager.currentPresetIndex.load()) {
+                    presetBoxes[i].setFillColor(sf::Color(80, 80, 80));
+                    presetBoxes[i].setOutlineThickness(3);
+                }
+                else {
+                    presetBoxes[i].setFillColor(sf::Color(45, 45, 45));
+                    presetBoxes[i].setOutlineThickness(2);
+                }
+                window.draw(presetBoxes[i]);
+                window.draw(presetLabels[i]);
+            }
         }
 
-        // Draw vertical dividers
+        // Draw vertical dividers - Adjusted for new spacing
         for (int i = 1; i < 5; ++i) {
             sf::VertexArray line(sf::Lines, 2);
-            line[0].position = sf::Vector2f(i * sectionWidth + 5, sectionY);
-            line[1].position = sf::Vector2f(i * sectionWidth + 5, sectionY + sectionHeight);
-            line[0].color = sf::Color(70, 70, 70);
-            line[1].color = sf::Color(70, 70, 70);
+            line[0].position = sf::Vector2f(i * sectionWidth + 10, sectionY);
+            line[1].position = sf::Vector2f(i * sectionWidth + 10, sectionY + sectionHeight);
+            line[0].color = sf::Color(80, 80, 80);
+            line[1].color = sf::Color(80, 80, 80);
             window.draw(line);
         }
 
         window.display();
-
-        
     }
 
     // (11) Cleanup
