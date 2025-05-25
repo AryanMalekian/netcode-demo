@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['trail_0',['Trail',['../classTrail.html',1,'']]]
+  ['inputcommand_0',['InputCommand',['../structInputCommand.html',1,'']]]
 ];
