@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.14.0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Advanced Netcode Demo: src/client/client.cpp File Reference</title>
+<title>Netcode Solution for IDATT-2104, Frivillig Prosjekt: src/client/client.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -26,9 +26,9 @@
  <tbody>
  <tr id="projectrow">
   <td id="projectalign">
-   <div id="projectname">Advanced Netcode Demo<span id="projectnumber">&#160;v1.0.0</span>
+   <div id="projectname">Netcode Solution for IDATT-2104, Frivillig Prosjekt<span id="projectnumber">&#160;v1.0.0</span>
    </div>
-   <div id="projectbrief">Client-side prediction and server reconciliation for real-time multiplayer applications</div>
+   <div id="projectbrief">Implemented netcode demonstration w/ visual demo, presenting several features.</div>
   </td>
  </tr>
  </tbody>
@@ -109,22 +109,29 @@ $(function(){initNavTree('client_8cpp.html','',''); });
 <code>#include &lt;iomanip&gt;</code><br />
 <code>#include &lt;deque&gt;</code><br />
 <code>#include &lt;random&gt;</code><br />
-<code>#include &quot;netcode/common/packet.hpp&quot;</code><br />
-<code>#include &quot;netcode/common/prediction.hpp&quot;</code><br />
-<code>#include &quot;netcode/common/interpolation.hpp&quot;</code><br />
-<code>#include &quot;netcode/common/input.hpp&quot;</code><br />
+<code>#include &lt;atomic&gt;</code><br />
+<code>#include &lt;mutex&gt;</code><br />
+<code>#include &lt;queue&gt;</code><br />
+<code>#include &quot;<a class="el" href="packet_8hpp_source.html">netcode/common/packet.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="prediction_8hpp_source.html">netcode/common/prediction.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="interpolation_8hpp_source.html">netcode/common/interpolation.hpp</a>&quot;</code><br />
+<code>#include &quot;<a class="el" href="input_8hpp_source.html">netcode/common/input.hpp</a>&quot;</code><br />
 <code>#include &lt;SFML/Graphics.hpp&gt;</code><br />
 </div>
 <p><a href="client_8cpp_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-nested-classes" class="groupheader"><a id="nested-classes" name="nested-classes"></a>
 Classes</h2></td></tr>
+<tr class="memitem:ThreadSafeQueue_3C_20T_20_3E" id="r_ThreadSafeQueue_3C_20T_20_3E"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classThreadSafeQueue.html">ThreadSafeQueue&lt; T &gt;</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">A simple thread-safe queue for passing packets between threads.  <a href="classThreadSafeQueue.html#details">More...</a><br /></td></tr>
 <tr class="memitem:DelayedPacket" id="r_DelayedPacket"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structDelayedPacket.html">DelayedPacket</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Represents a packet scheduled for delayed send/receive to simulate network lag.  <a href="structDelayedPacket.html#details">More...</a><br /></td></tr>
 <tr class="memitem:DelaySimulator" id="r_DelaySimulator"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classDelaySimulator.html">DelaySimulator</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Buffers packets for artificial network delay and releases them at the appropriate time.  <a href="classDelaySimulator.html#details">More...</a><br /></td></tr>
 <tr class="memitem:Trail" id="r_Trail"><td class="memItemLeft" align="right" valign="top">class &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="classTrail.html">Trail</a></td></tr>
 <tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Maintains a fading movement trail for visualization in SFML.  <a href="classTrail.html#details">More...</a><br /></td></tr>
+<tr class="memitem:NetworkStats" id="r_NetworkStats"><td class="memItemLeft" align="right" valign="top">struct &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structNetworkStats.html">NetworkStats</a></td></tr>
+<tr class="memdesc:"><td class="mdescLeft">&#160;</td><td class="mdescRight">Network thread that handles all UDP communication.  <a href="structNetworkStats.html#details">More...</a><br /></td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-define-members" class="groupheader"><a id="define-members" name="define-members"></a>
 Macros</h2></td></tr>
@@ -140,6 +147,7 @@ Functions</h2></td></tr>
 <tr class="memdesc:a2f5329ba338daa7eceec84fdb4095ada"><td class="mdescLeft">&#160;</td><td class="mdescRight">Prints detailed error information for socket operations.  <br /></td></tr>
 <tr class="memitem:a96df0851c9cd89da0191e6457b0de548" id="r_a96df0851c9cd89da0191e6457b0de548"><td class="memItemLeft" align="right" valign="top">std::string&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#a96df0851c9cd89da0191e6457b0de548">getCurrentTimestamp</a> ()</td></tr>
 <tr class="memdesc:a96df0851c9cd89da0191e6457b0de548"><td class="mdescLeft">&#160;</td><td class="mdescRight">Gets current timestamp for logging.  <br /></td></tr>
+<tr class="memitem:affc6a65c6b685166cbfae47b6ea0490a" id="r_affc6a65c6b685166cbfae47b6ea0490a"><td class="memItemLeft" align="right" valign="top">void&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#affc6a65c6b685166cbfae47b6ea0490a">networkThread</a> (<a class="el" href="#a30353f381f5fccbb956eea1f3a110b6c">socket_t</a> sock, sockaddr_in servAddr, <a class="el" href="classThreadSafeQueue.html">ThreadSafeQueue</a>&lt; <a class="el" href="structPacket.html">Packet</a> &gt; &amp;outgoingQueue, <a class="el" href="classThreadSafeQueue.html">ThreadSafeQueue</a>&lt; <a class="el" href="structPacket.html">Packet</a> &gt; &amp;incomingQueue, std::atomic&lt; bool &gt; &amp;running, <a class="el" href="structNetworkStats.html">NetworkStats</a> &amp;stats)</td></tr>
 <tr class="memitem:ae66f6b31b5ad750f1fe042a706a4e3d4" id="r_ae66f6b31b5ad750f1fe042a706a4e3d4"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="#ae66f6b31b5ad750f1fe042a706a4e3d4">main</a> ()</td></tr>
 </table><table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 id="header-var-members" class="groupheader"><a id="var-members" name="var-members"></a>
@@ -153,10 +161,12 @@ Variables</h2></td></tr>
 <p>This interactive demo visualizes the effects of network latency and different prediction strategies for real-time multiplayer games. It sends the local player's movement to a server via UDP, receives back the authoritative server state, and demonstrates:</p>
 <p>Features demonstrated:</p><ul>
 <li>Cross-platform UDP sockets (Winsock/POSIX support)</li>
+<li><b>Multithreaded architecture</b>: Separate network thread for sending/receiving packets</li>
+<li><b>Thread-safe communication</b>: Lock-free queues for inter-thread packet exchange</li>
 <li><b>Artificial network delay simulation</b> (both outbound and inbound)</li>
-<li>Use of a compact, serializable Packet struct for network communication</li>
+<li>Use of a compact, serializable <a class="el" href="structPacket.html" title="A fixed-size UDP packet format carrying sequence, position, and velocity.">Packet</a> struct for network communication</li>
 <li><b>Naive prediction</b>: simple linear extrapolation for client-side prediction</li>
-<li><b>Advanced prediction</b>: input buffering, replay, and server reconciliation with PredictionSystem</li>
+<li><b>Advanced prediction</b>: input buffering, replay, and server reconciliation with <a class="el" href="classPredictionSystem.html" title="Full-featured advanced client-side prediction system for real-time netcode.">PredictionSystem</a></li>
 <li><b>Server reconciliation</b>: correcting mispredictions by rolling back to server state and reapplying inputs, with smooth error correction</li>
 <li><b>Client-side interpolation</b>: visual interpolation between server packets for smooth rendering</li>
 <li><b>Live performance metrics</b>: FPS, RTT, packet loss, and buffered input count shown live in the window</li>
@@ -170,10 +180,15 @@ Variables</h2></td></tr>
 <li>Section 2: Server state (red)</li>
 <li>Section 3: Naive prediction (blue)</li>
 <li>Section 4: Advanced prediction (magenta)</li>
-<li>Interpolation (orange) shown in a separate area</li>
+<li>Section 5: Interpolation (orange)</li>
+</ul>
+<p>Threading model:</p><ul>
+<li>Main thread: Handles rendering, input, and game logic at 60 FPS</li>
+<li>Network thread: Manages all UDP communication independently</li>
+<li>Communication via thread-safe queues ensures no blocking between threads</li>
 </ul>
 <p>This version is suitable for educational and research use in real-time multiplayer networking and latency compensation.</p>
-<dl class="section author"><dt>Author</dt><dd>Aryan Malekian </dd></dl>
+<dl class="section author"><dt>Author</dt><dd>Aryan Malekian w/ use of A.I. Models </dd></dl>
 <dl class="section date"><dt>Date</dt><dd>23.05.2025 </dd></dl>
 
 <p class="definition">Definition in file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
@@ -190,7 +205,7 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00035">35</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00042">42</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
 
 </div>
 </div>
@@ -207,7 +222,7 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00049">49</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00056">56</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
 
 </div>
 </div>
@@ -230,7 +245,7 @@ Variables</h2></td></tr>
 <p>Gets current timestamp for logging. </p>
 <dl class="section return"><dt>Returns</dt><dd>Formatted timestamp string </dd></dl>
 
-<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00128">128</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00174">174</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
 
 </div>
 </div>
@@ -249,7 +264,50 @@ Variables</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00280">280</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00449">449</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
+
+</div>
+</div>
+<a id="affc6a65c6b685166cbfae47b6ea0490a" name="affc6a65c6b685166cbfae47b6ea0490a"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#affc6a65c6b685166cbfae47b6ea0490a">&#9670;&#160;</a></span>networkThread()</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">void networkThread </td>
+          <td>(</td>
+          <td class="paramtype"><a class="el" href="#a30353f381f5fccbb956eea1f3a110b6c">socket_t</a></td>          <td class="paramname"><span class="paramname"><em>sock</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">sockaddr_in</td>          <td class="paramname"><span class="paramname"><em>servAddr</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classThreadSafeQueue.html">ThreadSafeQueue</a>&lt; <a class="el" href="structPacket.html">Packet</a> &gt; &amp;</td>          <td class="paramname"><span class="paramname"><em>outgoingQueue</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="classThreadSafeQueue.html">ThreadSafeQueue</a>&lt; <a class="el" href="structPacket.html">Packet</a> &gt; &amp;</td>          <td class="paramname"><span class="paramname"><em>incomingQueue</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype">std::atomic&lt; bool &gt; &amp;</td>          <td class="paramname"><span class="paramname"><em>running</em></span>, </td>
+        </tr>
+        <tr>
+          <td class="paramkey"></td>
+          <td></td>
+          <td class="paramtype"><a class="el" href="structNetworkStats.html">NetworkStats</a> &amp;</td>          <td class="paramname"><span class="paramname"><em>stats</em></span>&#160;)</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00352">352</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
 
 </div>
 </div>
@@ -276,7 +334,7 @@ Variables</h2></td></tr>
   </dd>
 </dl>
 
-<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00074">74</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00120">120</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
 
 </div>
 </div>
@@ -301,7 +359,7 @@ Variables</h2></td></tr>
 </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00153">153</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00199">199</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
 
 </div>
 </div>
@@ -327,7 +385,7 @@ Variables</h2></td></tr>
 
 <p>Minimum and maximum artificial delay in milliseconds for simulated network lag. </p>
 
-<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00152">152</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
+<p class="definition">Definition at line <a class="el" href="client_8cpp_source.html#l00198">198</a> of file <a class="el" href="client_8cpp_source.html">client.cpp</a>.</p>
 
 </div>
 </div>
@@ -345,7 +403,7 @@ Variables</h2></td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a href="dir_6908ff505388a07996d238c763adbdab.html">client</a></li><li class="navelem"><a href="client_8cpp.html">client.cpp</a></li>
-    <li class="footer">Generated on <span class="timestamp"></span> for Advanced Netcode Demo by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.14.0 </li>
+    <li class="footer">Generated on <span class="timestamp"></span> for Netcode Solution for IDATT-2104, Frivillig Prosjekt by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.14.0 </li>
   </ul>
 </div>
 </body>

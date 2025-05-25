@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.14.0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Advanced Netcode Demo: src/server/server.cpp File Reference</title>
+<title>Netcode Solution for IDATT-2104, Frivillig Prosjekt: src/server/server.cpp File Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -26,9 +26,9 @@
  <tbody>
  <tr id="projectrow">
   <td id="projectalign">
-   <div id="projectname">Advanced Netcode Demo<span id="projectnumber">&#160;v1.0.0</span>
+   <div id="projectname">Netcode Solution for IDATT-2104, Frivillig Prosjekt<span id="projectnumber">&#160;v1.0.0</span>
    </div>
-   <div id="projectbrief">Client-side prediction and server reconciliation for real-time multiplayer applications</div>
+   <div id="projectbrief">Implemented netcode demonstration w/ visual demo, presenting several features.</div>
   </td>
  </tr>
  </tbody>
@@ -104,7 +104,7 @@ $(function(){initNavTree('server_8cpp.html','',''); });
 <code>#include &lt;chrono&gt;</code><br />
 <code>#include &lt;iomanip&gt;</code><br />
 <code>#include &lt;sstream&gt;</code><br />
-<code>#include &quot;netcode/common/packet.hpp&quot;</code><br />
+<code>#include &quot;<a class="el" href="packet_8hpp_source.html">netcode/common/packet.hpp</a>&quot;</code><br />
 </div>
 <p><a href="server_8cpp_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -121,7 +121,7 @@ Functions</h2></td></tr>
 <p>Listens for UDP packets from clients on port 54000, decodes each packet, prints its contents, and echoes it back to the sender.</p>
 <p>Demonstrates:</p><ul>
 <li>Use of Winsock (on Windows) or BSD sockets (on macOS/Linux) for raw UDP communication</li>
-<li>Serialization/deserialization of custom packet types (see Packet in packet.hpp)</li>
+<li>Serialization/deserialization of custom packet types (see <a class="el" href="structPacket.html" title="A fixed-size UDP packet format carrying sequence, position, and velocity.">Packet</a> in <a class="el" href="packet_8hpp.html" title="Defines the Packet struct used for UDP communication in the netcode demo.">packet.hpp</a>)</li>
 <li>Stateless server loop suitable for multiplayer games or real-time netcode</li>
 <li>Robust error handling and packet validation</li>
 </ul>
@@ -129,7 +129,7 @@ Functions</h2></td></tr>
 <li>Initialize socket API (WSAStartup on Windows; nothing needed on Unix)</li>
 <li>Create a UDP socket (socket)</li>
 <li>Bind the socket to port 54000 (bind)</li>
-<li>Enter main loop: a. Wait for incoming packets (recvfrom) b. Deserialize the buffer into a Packet struct c. Validate packet contents for security d. Print the packet contents to the console e. Echo the same packet back to the client (sendto)</li>
+<li>Enter main loop: a. Wait for incoming packets (recvfrom) b. Deserialize the buffer into a <a class="el" href="structPacket.html" title="A fixed-size UDP packet format carrying sequence, position, and velocity.">Packet</a> struct c. Validate packet contents for security d. Print the packet contents to the console e. Echo the same packet back to the client (sendto)</li>
 <li>Cleanup resources on shutdown (closesocket/WSACleanup on Windows, close() on Unix)</li>
 </ol>
 <p>This code is portable and will compile and run on both Windows and Unix-like systems.</p>
@@ -220,7 +220,7 @@ Functions</h2></td></tr>
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
     <li class="navelem"><a href="dir_68267d1309a1af8e8297ef4c3efbcdba.html">src</a></li><li class="navelem"><a href="dir_075bb3ff235063c77951cd176d15a741.html">server</a></li><li class="navelem"><a href="server_8cpp.html">server.cpp</a></li>
-    <li class="footer">Generated on <span class="timestamp"></span> for Advanced Netcode Demo by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.14.0 </li>
+    <li class="footer">Generated on <span class="timestamp"></span> for Netcode Solution for IDATT-2104, Frivillig Prosjekt by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.14.0 </li>
   </ul>
 </div>
 </body>

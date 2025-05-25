@@ -24,7 +24,8 @@
 */
 var NAVTREE =
 [
-  [ "Advanced Netcode Demo", "index.html", [
+  [ "Netcode Solution for IDATT-2104, Frivillig Prosjekt", "index.html", [
+    [ "Netcode Demo", "index.html", "index" ],
     [ "Classes", "annotated.html", [
       [ "Class List", "annotated.html", "annotated_dup" ],
       [ "Class Index", "classes.html", null ],

@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.14.0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Advanced Netcode Demo: Class Members - Functions</title>
+<title>Netcode Solution for IDATT-2104, Frivillig Prosjekt: Class Members - Functions</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -26,9 +26,9 @@
  <tbody>
  <tr id="projectrow">
   <td id="projectalign">
-   <div id="projectname">Advanced Netcode Demo<span id="projectnumber">&#160;v1.0.0</span>
+   <div id="projectname">Netcode Solution for IDATT-2104, Frivillig Prosjekt<span id="projectnumber">&#160;v1.0.0</span>
    </div>
-   <div id="projectbrief">Client-side prediction and server reconciliation for real-time multiplayer applications</div>
+   <div id="projectbrief">Implemented netcode demonstration w/ visual demo, presenting several features.</div>
   </td>
  </tr>
  </tbody>
@@ -91,13 +91,29 @@ $(function(){initNavTree('functions_func.html','',''); });
 <div class="contents">
 <div class="textblock">Here is a list of all functions with links to the classes they belong to:</div><ul>
 <li>addPosition()&#160;:&#160;<a class="el" href="classTrail.html#a031e9f1c4c7a76b4d0c578661dd0384d">Trail</a></li>
+<li>applyInput()&#160;:&#160;<a class="el" href="classPredictionSystem.html#ad0e554a1f2d12fcefebe0bea9d939c78">PredictionSystem</a></li>
 <li>clear()&#160;:&#160;<a class="el" href="classDelaySimulator.html#a98a2d6289ad71f026770aa064adf968a">DelaySimulator</a>, <a class="el" href="classTrail.html#a3892b65010f2ef87408303be62c3013f">Trail</a></li>
 <li>DelayedPacket()&#160;:&#160;<a class="el" href="structDelayedPacket.html#a782bb739e0f669866edb7a6d5a4db265">DelayedPacket</a></li>
 <li>DelaySimulator()&#160;:&#160;<a class="el" href="classDelaySimulator.html#a21237737f640c6a6db5b31daf79f0b3c">DelaySimulator</a></li>
+<li>deserialize()&#160;:&#160;<a class="el" href="structPacket.html#a5f525898f485dabae5b3d26be41b0bfc">Packet</a></li>
 <li>draw()&#160;:&#160;<a class="el" href="classTrail.html#ae133f31589fb22dcf0a03061087872aa">Trail</a></li>
+<li>getPredictedPosition()&#160;:&#160;<a class="el" href="classPredictionSystem.html#aa7c7714dc3b9108dec2ecb8ce41a881c">PredictionSystem</a></li>
+<li>getPredictedVelocity()&#160;:&#160;<a class="el" href="classPredictionSystem.html#ab89ab8ec41091716d08c3f359321ebbd">PredictionSystem</a></li>
 <li>getReady()&#160;:&#160;<a class="el" href="classDelaySimulator.html#a0abd3d56d13cefe7ea73d046b5901f4f">DelaySimulator</a></li>
+<li>getUnackedInputCount()&#160;:&#160;<a class="el" href="classPredictionSystem.html#a08fc459398e94b3f5261b98d43832caf">PredictionSystem</a></li>
+<li>InputCommand()&#160;:&#160;<a class="el" href="structInputCommand.html#af1eadceda7b13a515e0ae7ec222570d2">InputCommand</a></li>
+<li>isValid()&#160;:&#160;<a class="el" href="structPacket.html#a50c6e38a4a95f5930ce5a87988e52746">Packet</a></li>
+<li>Packet()&#160;:&#160;<a class="el" href="structPacket.html#aabcfb963c0d5bc0fa554668f92989622">Packet</a></li>
+<li>pop()&#160;:&#160;<a class="el" href="classThreadSafeQueue.html#a639f60baefe44a54f55ee746a2fa334f">ThreadSafeQueue&lt; T &gt;</a></li>
+<li>PredictionSystem()&#160;:&#160;<a class="el" href="classPredictionSystem.html#affc91143d0dd912ddb00e787f90041aa">PredictionSystem</a></li>
+<li>push()&#160;:&#160;<a class="el" href="classThreadSafeQueue.html#ac8d4e87e0c7b4e3d22e32e6508624cba">ThreadSafeQueue&lt; T &gt;</a></li>
+<li>reconcileWithServer()&#160;:&#160;<a class="el" href="classPredictionSystem.html#a89b944b10c51c59acd85c5297d87cdcf">PredictionSystem</a></li>
 <li>send()&#160;:&#160;<a class="el" href="classDelaySimulator.html#a3c3ce4a2b05b6c1aa8e4d990c3159646">DelaySimulator</a></li>
+<li>serialize()&#160;:&#160;<a class="el" href="structPacket.html#ad38f8695cb80e9594267a4f6ed90f2af">Packet</a></li>
+<li>shouldThrottle()&#160;:&#160;<a class="el" href="classPredictionSystem.html#ae137d128f309cc7d7d2357a6ab2ea258">PredictionSystem</a></li>
+<li>size()&#160;:&#160;<a class="el" href="structPacket.html#a1762cdd522b4a3f75ca94bd5630d6200">Packet</a>, <a class="el" href="classThreadSafeQueue.html#ab255a078bfa2253878a2e17fd5a7a21c">ThreadSafeQueue&lt; T &gt;</a></li>
 <li>Trail()&#160;:&#160;<a class="el" href="classTrail.html#aaf0a7c56dc3a6963818be26e3e320067">Trail</a></li>
+<li>update()&#160;:&#160;<a class="el" href="classPredictionSystem.html#abb6fbcc5e88dc2e27b3015ed8f2cd1b1">PredictionSystem</a></li>
 </ul>
 </div><!-- contents -->
 </div><!-- doc-content -->
@@ -105,7 +121,7 @@ $(function(){initNavTree('functions_func.html','',''); });
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on <span class="timestamp"></span> for Advanced Netcode Demo by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.14.0 </li>
+    <li class="footer">Generated on <span class="timestamp"></span> for Netcode Solution for IDATT-2104, Frivillig Prosjekt by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.14.0 </li>
   </ul>
 </div>
 </body>

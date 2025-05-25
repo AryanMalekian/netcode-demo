@@ -5,7 +5,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=11"/>
 <meta name="generator" content="Doxygen 1.14.0"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Advanced Netcode Demo: Main Page</title>
+<title>Netcode Solution for IDATT-2104, Frivillig Prosjekt: Netcode Demo</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -26,9 +26,9 @@
  <tbody>
  <tr id="projectrow">
   <td id="projectalign">
-   <div id="projectname">Advanced Netcode Demo<span id="projectnumber">&#160;v1.0.0</span>
+   <div id="projectname">Netcode Solution for IDATT-2104, Frivillig Prosjekt<span id="projectnumber">&#160;v1.0.0</span>
    </div>
-   <div id="projectbrief">Client-side prediction and server reconciliation for real-time multiplayer applications</div>
+   <div id="projectbrief">Implemented netcode demonstration w/ visual demo, presenting several features.</div>
   </td>
  </tr>
  </tbody>
@@ -88,10 +88,257 @@ $(function(){initNavTree('index.html','',''); });
 </div>
 </div>
 
-<div class="header">
-  <div class="headertitle"><div class="title">Advanced Netcode Demo Documentation</div></div>
+<div><div class="header">
+  <div class="headertitle"><div class="title">Netcode Demo </div></div>
 </div><!--header-->
 <div class="contents">
+<div class="textblock"><p><a class="anchor" id="md_README"></a></p>
+<p><a href="https://github.com/aryanmalekian/netcode-demo/actions"><img src="https://github.com/aryanmalekian/netcode-demo/workflows/Build%20(CMake%20+%20vcpkg%20on%20Windows)/badge.svg" alt="Build Status" style="pointer-events: none;" class="inline"/></a> | <a href="https://aryanmalekian.github.io/netcode-demo/">API Dokumentasjon</a></p>
+<p><em>Netcode-løsning med client-side prediction og server reconciliation</em></p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md1"></a>
+Introduksjon</h1>
+<p>Dette prosjektet implementerer netcode-teknikker for å håndtere nettverksforsinkelse og pakketap. Løsningen viser hvordan client-side prediction, input-buffering og server reconciliation kan brukes for å skape responsiv nettverksopplevelse selv med høy latency.</p>
+<p>Prosjektet sammenligner fem forskjellige tilnærminger side-om-side:</p><ul>
+<li><b>Lokal input</b> (grønn) - umiddelbar respons</li>
+<li><b>Server state</b> (rød) - autoritativ, men forsinket <br  />
+</li>
+<li><b>Naiv prediction</b> (blå) - enkel ekstrapolering</li>
+<li><b>Prediction med reconciliation</b> (magenta) - korrigerer feilpredictions</li>
+<li><b>Interpolation</b> (oransje) - jevn mellom server-oppdateringer</li>
+</ul>
+<p><b>MERK!:</b> Den tekniske implementasjonen (kode) er utviklet i samarbeid med AI-modeller (Claude og ChatGPT), mens arkitekturale beslutninger, designvalg, prioriteringer og DELVIS implementasjonsstrategi er tatt av forfatteren.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md2"></a>
+Implementert Funksjonalitet</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md3"></a>
+Kjerneteknikker</h2>
+<ul>
+<li><b>Dual-threaded architecture</b> med Producer-Consumer pattern</li>
+<li><b>Thread-safe message passing</b> via <span class="tt">ThreadSafeQueue&lt;Packet&gt;</span> mellom tråder <br  />
+</li>
+<li><b>Client-side prediction</b> med input-buffering og rollback</li>
+<li><b>Server reconciliation</b> for å korrigere feilpredictions</li>
+<li><b>Artificial network delay simulation</b> for realistisk testing (80-180ms randomized)</li>
+<li><b>Linear interpolation</b> mellom server states</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md4"></a>
+Visualisering og Metrics</h2>
+<ul>
+<li><b>Realtime sammenligning</b> av fem prediction-metoder</li>
+<li><b>Live performance metrics</b> (FPS, RTT, packet loss, buffer size)</li>
+<li><b>Movement tracing</b> for å visualisere forsinkelse</li>
+<li><b>Cross-platform UDP sockets</b> (Windows/Unix)</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md5"></a>
+Cross-Platform Implementasjon</h2>
+<p>Prosjektet bruker kompiler-betingede direktiver for å støtte forskjellige plattformer:</p>
+<p><b>Windows (Winsock2):</b> </p><div class="fragment"><div class="line"><span class="preprocessor">#ifdef _WIN32</span></div>
+<div class="line"><span class="preprocessor">#include &lt;winsock2.h&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;ws2tcpip.h&gt;</span></div>
+<div class="line"><span class="keyword">typedef</span> SOCKET <a class="code hl_typedef" href="client_8cpp.html#a30353f381f5fccbb956eea1f3a110b6c">socket_t</a>;</div>
+<div class="line"><span class="preprocessor">#pragma comment(lib, &quot;Ws2_32.lib&quot;)</span></div>
+<div class="ttc" id="aclient_8cpp_html_a30353f381f5fccbb956eea1f3a110b6c"><div class="ttname"><a href="client_8cpp.html#a30353f381f5fccbb956eea1f3a110b6c">socket_t</a></div><div class="ttdeci">int socket_t</div><div class="ttdef"><b>Definition</b> <a href="client_8cpp_source.html#l00056">client.cpp:56</a></div></div>
+</div><!-- fragment --><p><b>Unix/Linux (BSD Sockets):</b> </p><div class="fragment"><div class="line"><span class="preprocessor">#else</span></div>
+<div class="line"><span class="preprocessor">#include &lt;sys/socket.h&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;arpa/inet.h&gt;</span></div>
+<div class="line"><span class="preprocessor">#include &lt;unistd.h&gt;</span></div>
+<div class="line"><span class="keyword">typedef</span> <span class="keywordtype">int</span> <a class="code hl_typedef" href="client_8cpp.html#a30353f381f5fccbb956eea1f3a110b6c">socket_t</a>;</div>
+</div><!-- fragment --><p>Non-blocking sockets håndteres forskjellig på hver plattform, og feilhåndtering tilpasses det respektive API-et.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md6"></a>
+Fremtidig Arbeid</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md7"></a>
+Nåværende Mangler/Svakheter</h2>
+<ul>
+<li><b>Server-side lag compensation</b> - kun echo-server implementert</li>
+<li><b>Flere klienter samtidig</b> - støtter kun én klient (men netcode-implementasjonen demonstreres likevel)</li>
+<li><b>Pakke-kompresjon</b> for båndbredde-optimalisering</li>
+<li><b>Adaptive prediction</b> basert på nettverkskvalitet</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md8"></a>
+Mulige Utvidelser</h2>
+<ul>
+<li>Prediction rollback for andre spillere</li>
+<li>Nettverkssimulering med jitter og variable packet loss</li>
+<li>Optimistisk kollisjonshåndtering</li>
+</ul>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md9"></a>
+Eksterne Avhengigheter</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md10"></a>
+Byggverktøy</h2>
+<ul>
+<li><b>CMake (3.20+)</b>: Cross-platform byggesystem for prosjektorganisering</li>
+<li><b>vcpkg</b>: C++ pakkemanager som håndterer bibliotekinstallasjon automatisk</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md11"></a>
+Biblioteker</h2>
+<ul>
+<li><b>SFML</b>: Simple and Fast Multimedia Library<ul>
+<li>Brukt til: Grafikk-rendering, vindushåndtering, input-håndtering og grunnleggende nettverksabstraksjon</li>
+<li>Komponenter: sfml-graphics, sfml-window, sfml-system</li>
+</ul>
+</li>
+<li><b>Catch2</b>: Testing framework for C++<ul>
+<li>Brukt til: Unit tests, integration tests</li>
+</ul>
+</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md12"></a>
+Platform-spesifikke</h2>
+<ul>
+<li><b>Winsock2</b> (Windows): Windows Socket API for UDP-kommunikasjon</li>
+<li><b>BSD Sockets</b> (Unix/Linux): POSIX socket API for nettverkskommunikasjon</li>
+</ul>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md13"></a>
+Installasjonsinstruksjoner</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md14"></a>
+Forutsetninger</h2>
+<ul>
+<li>C++17-kompatibel kompiler (MSVC 2019+, GCC 9+, Clang 10+)</li>
+<li>Git</li>
+<li>CMake 3.20+</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md15"></a>
+Installasjon</h2>
+<div class="fragment"><div class="line"># 1. Klon repository</div>
+<div class="line">git clone https://github.com/aryanmalekian/netcode-demo.git</div>
+<div class="line">cd netcode-demo</div>
+<div class="line"> </div>
+<div class="line"># 2. Installer dependencies</div>
+<div class="line">vcpkg install</div>
+<div class="line"> </div>
+<div class="line"># 3. Bygg prosjektet</div>
+<div class="line">cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=vcpkg/scripts/buildsystems/vcpkg.cmake</div>
+<div class="line">cmake --build build --config Release</div>
+</div><!-- fragment --><p>vcpkg håndterer alle dependencies som deklarert i vcpkg.json.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md16"></a>
+Instruksjoner for Bruk</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md17"></a>
+1. Start Server</h2>
+<div class="fragment"><div class="line"># Bygg først hvis ikke gjort (må være i build-mappen)</div>
+<div class="line">cd build</div>
+<div class="line">cmake --build . --config Release</div>
+<div class="line"> </div>
+<div class="line"># Kjør server</div>
+<div class="line">cd bin/Release</div>
+<div class="line">.\netcode-server.exe</div>
+</div><!-- fragment --><h2 class="doxsection"><a class="anchor" id="autotoc_md18"></a>
+2. Start Klient (nytt terminal)</h2>
+<div class="fragment"><div class="line"># Fra samme mappe som serveren</div>
+<div class="line">cd build/bin/Release</div>
+<div class="line">.\netcode-client.exe</div>
+</div><!-- fragment --><h2 class="doxsection"><a class="anchor" id="autotoc_md19"></a>
+3. Kontroller</h2>
+<ul>
+<li><b>Piltaster</b>: Beveg objektet</li>
+<li><b>C</b>: Nullstill alle movement traces</li>
+<li><b>Lukk vindu</b>: Avslutt programmet</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md20"></a>
+4. Observasjon</h2>
+<p>Følg de fem fargede prikkene som viser forskjellige prediction-metoder. Live metrics vises øverst i vinduet med FPS, RTT, packet loss og buffer status.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md21"></a>
+Kjøring av Tester</h1>
+<p>Prosjektet har omfattende test-suite med både unit tests og integration tests.</p>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md22"></a>
+Test-kategorier</h2>
+<ul>
+<li><b>Packet tests</b>: Serialization, validation, network byte order</li>
+<li><b>Prediction tests</b>: PredictionSystem, reconciliation, edge cases <br  />
+</li>
+<li><b>Interpolation tests</b>: Linear interpolasjon matematikk</li>
+<li><b>Client/Server tests</b>: Core funksjonalitet og echo-testing</li>
+<li><b>Integration tests</b>: DelaySimulator, Trail, metrics, error handling</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md23"></a>
+Kjør tester</h2>
+<div class="fragment"><div class="line">cd build</div>
+<div class="line"> </div>
+<div class="line"># Kjør alle tester</div>
+<div class="line">ctest --output-on-failure</div>
+<div class="line"> </div>
+<div class="line"># Eller kjør direkte</div>
+<div class="line">cd bin/Release</div>
+<div class="line">.\netcode_tests.exe</div>
+<div class="line"> </div>
+<div class="line"># Spesifikke test-kategorier</div>
+<div class="line">.\netcode_tests.exe &quot;[Packet]&quot;         # Packet-relaterte tester</div>
+<div class="line">.\netcode_tests.exe &quot;[Prediction]&quot;     # Prediction-algoritme tester  </div>
+<div class="line">.\netcode_tests.exe &quot;[Interpolation]&quot;  # Interpolation tester</div>
+<div class="line">.\netcode_tests.exe &quot;[Integration]&quot;    # Integration tester</div>
+<div class="line">.\netcode_tests.exe &quot;[client]&quot;         # Client tester</div>
+<div class="line">.\netcode_tests.exe &quot;[server]&quot;         # Server tester</div>
+</div><!-- fragment --><p>Test coverage dekker ca. (+-)80% av core-funksjonaliteten (ekskluderer SFML rendering og socket operasjoner). Dette er bare et estimat.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md24"></a>
+API Dokumentasjon</h1>
+<p>Dokumentasjonen er tilgjengelig på GitHub Pages: <a href="https://aryanmalekian.github.io/netcode-demo/">https://aryanmalekian.github.io/netcode-demo/</a></p>
+<p>For lokal generering av dokumentasjon: </p><div class="fragment"><div class="line"># Generer dokumentasjon (krever Doxygen installert)</div>
+<div class="line">doxygen Doxyfile</div>
+<div class="line"> </div>
+<div class="line"># Åpne dokumentasjon</div>
+<div class="line"># Windows: start docs/html/index.html  </div>
+<div class="line"># Linux: xdg-open docs/html/index.html</div>
+<div class="line"># macOS: open docs/html/index.html</div>
+</div><!-- fragment --><h1 class="doxsection"><a class="anchor" id="autotoc_md25"></a>
+Arkitektur og Design</h1>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md26"></a>
+Prosjektstruktur</h2>
+<p>Prosjektet følger standard C++ header/implementation separasjon:</p>
+<div class="fragment"><div class="line">include/netcode/           # Public headers</div>
+<div class="line">├── common/               # Delte datatyper og algoritmer</div>
+<div class="line">│   ├── packet.hpp       # UDP pakkeformat</div>
+<div class="line">│   ├── prediction.hpp   # Prediksjons-API</div>
+<div class="line">│   ├── interpolation.hpp # Interpolasjonsalgoritmer</div>
+<div class="line">│   └── input.hpp        # Input-kommando struktur</div>
+<div class="line">src/                      # Implementasjoner</div>
+<div class="line">├── common/              # Delte implementasjoner</div>
+<div class="line">├── client/              # Klient-kode</div>
+<div class="line">└── server/              # Server-kode</div>
+<div class="line">tests/                    # Test-kode organisert etter komponent</div>
+</div><!-- fragment --><h2 class="doxsection"><a class="anchor" id="autotoc_md27"></a>
+Dual-Threaded Design</h2>
+<ul>
+<li><b>Hovedtråd</b>: Håndterer rendering, input og game logic (60 FPS)</li>
+<li><b>Dedikert nettverkstråd</b>: Behandler all UDP-kommunikasjon asynkront</li>
+<li><b>Thread-safe message queues</b>: Producer-Consumer pattern med <span class="tt">ThreadSafeQueue&lt;Packet&gt;</span></li>
+<li><b>Artificial delay simulation</b>: Separate DelaySimulator instances per tråd</li>
+</ul>
+<p>Kommunikasjon mellom tråder skjer via thread-safe køer med mutex-beskyttelse og size-begrensninger for å unngå minneproblemer.</p>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md28"></a>
+Prediction Algorithm</h2>
+<p>Implementerer moderne netcode-prinsipper:</p><ol type="1">
+<li><b>Input Prediction</b>: Anvend lokal input umiddelbart for responsivitet</li>
+<li><b>Input Buffering</b>: Lagre inputs til server bekrefter mottak</li>
+<li><b>Server Reconciliation</b>: Sammenlign, rull tilbake og replay ved avvik</li>
+<li><b>Smooth Correction</b>: Gradvis correction over flere frames for å unngå synlige hopp</li>
+</ol>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md29"></a>
+Cross-Platform Abstraksjon</h2>
+<p>Socket-håndtering abstrakseres gjennom:</p><ul>
+<li>Felles <span class="tt">socket_t</span> typedef</li>
+<li>Platform-spesifikke error-håndtering</li>
+<li>Betinget kompilering for non-blocking socket setup</li>
+<li>Unified API for alle nettverksoperasjoner</li>
+</ul>
+<h2 class="doxsection"><a class="anchor" id="autotoc_md30"></a>
+Build System</h2>
+<p>CMake organiserer prosjektet i moduler:</p><ul>
+<li><span class="tt">netcode-common</span>: Static library med delte komponenter</li>
+<li><span class="tt">client</span>: Executable som linker mot common og SFML</li>
+<li><span class="tt">server</span>: Minimal executable for UDP echo</li>
+<li><span class="tt">netcode-tests</span>: Test executable med Catch2</li>
+</ul>
+<p>vcpkg manifest mode (<span class="tt">vcpkg.json</span>) sikrer konsistent dependency-håndtering på tvers av plattformer.</p>
+<h1 class="doxsection"><a class="anchor" id="autotoc_md31"></a>
+Continuous Integration</h1>
+<p>GitHub Actions bygger og tester automatisk på Windows med MSVC, vcpkg og Ninja. CI-pipeline inkluderer:</p><ul>
+<li>Automatisk vcpkg setup og caching</li>
+<li>Release-bygging med optimalisering</li>
+<li>Kjøring av alle test-suiter</li>
+<li>Doxygen dokumentasjonsgenerering</li>
+</ul>
+<p>Se <span class="tt">.github/workflows/build.yml</span> for fullstendige CI/CD-konfigurasjon.</p>
+<hr  />
+<p><b>Prosjekt utviklet som del av IDATT-2104 Frivillig Prosjekt for å demonstrere en Netcode løsning</b> </p>
+</div></div><!-- PageDoc -->
 <a href="doxygen_crawl.html"></a>
 </div><!-- contents -->
 </div><!-- doc-content -->
@@ -99,7 +346,7 @@ $(function(){initNavTree('index.html','',''); });
 <!-- start footer part -->
 <div id="nav-path" class="navpath"><!-- id is needed for treeview function! -->
   <ul>
-    <li class="footer">Generated on <span class="timestamp"></span> for Advanced Netcode Demo by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.14.0 </li>
+    <li class="footer">Generated on <span class="timestamp"></span> for Netcode Solution for IDATT-2104, Frivillig Prosjekt by <a href="https://www.doxygen.org/index.html"><img class="footer" src="doxygen.svg" width="104" height="31" alt="doxygen"/></a> 1.14.0 </li>
   </ul>
 </div>
 </body>
