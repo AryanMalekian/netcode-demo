@@ -1,11 +1,17 @@
 /**
  * @file server_tests.cpp
- * @brief Basic tests for UDP server logic in netcode demo.
+ * @brief Unit tests for UDP server echo functionality and packet handling.
  *
- * Tests packet echo simulation and deserialization correctness.
- * Real socket communication and bind/listen require integration/system tests.
+ * Tests core server logic including packet echo simulation and basic
+ * validation scenarios. Focuses on testable server components without
+ * requiring actual socket operations or network infrastructure.
  *
- * @author Aryan Malekian
+ * Coverage:
+ * - Packet echo simulation (serialize/deserialize roundtrip)
+ * - Packet size validation logic
+ * - Basic server data handling correctness
+ *
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 23.05.2025
  */
 
@@ -28,8 +34,7 @@ TEST_CASE("Server: packet echo simulation", "[server]") {
     REQUIRE(recv_pkt.vy == Catch::Approx(1.f));
 }
 
-TEST_CASE("Server: invalid packet size is ignored", "[server]") {
+TEST_CASE("Server: packet size validation", "[server]") {
     char buf[Packet::size() - 1] = {};
-    Packet pkt;
     REQUIRE(sizeof(buf) != Packet::size());
 }

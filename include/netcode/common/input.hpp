@@ -1,9 +1,16 @@
 /**
  * @file input.hpp
- * @brief Input command structure for client-side prediction.
+ * @brief Input command structure for client-side prediction and reconciliation.
  *
- * Defines the InputCommand struct that represents player input at a specific time.
- * This is used for input buffering and reconciliation in the prediction system.
+ * Defines the InputCommand struct that represents timestamped user input
+ * for netcode prediction systems. Each command contains normalized input
+ * values and timing information needed for input replay during reconciliation.
+ *
+ * Usage:
+ *   - Create InputCommand for each frame's user input
+ *   - Buffer commands until server acknowledgment
+ *   - Replay buffered commands during reconciliation
+ *   - Use sequence numbers for ordering and acknowledgment
  *
  * @author Aryan Malekian w/ use of A.I. Models
  * @date 23.05.2025
@@ -15,17 +22,23 @@
 
  /**
   * @struct InputCommand
-  * @brief Represents a single input command from the player.
+  * @brief Represents a timestamped input command for prediction systems.
   *
-  * Each input command is timestamped with a sequence number and contains
-  * the velocity inputs that were active at that time. This allows the
-  * prediction system to replay inputs after receiving server corrections.
+  * Each input command captures user input state at a specific moment,
+  * tagged with sequence number and timing information. This enables
+  * the prediction system to replay exact input sequences during
+  * server reconciliation for deterministic state reconstruction.
+  *
+  * Features:
+  * - Sequence-based ordering and acknowledgment
+  * - Normalized velocity inputs for consistent behavior
+  * - Frame timing for accurate replay simulation
   */
 struct InputCommand {
-    uint32_t sequence;  /**< Sequence number of this input */
-    float vx;          /**< X-axis velocity input (-1 to 1, normalized) */
-    float vy;          /**< Y-axis velocity input (-1 to 1, normalized) */
-    float dt;          /**< Delta time for this input frame */
+    uint32_t sequence;  /**< Sequence number for ordering and server acknowledgment */
+    float vx;          /**< X-axis velocity input (-1 to 1, normalized from user input) */
+    float vy;          /**< Y-axis velocity input (-1 to 1, normalized from user input) */
+    float dt;          /**< Delta time for this input frame (seconds) */
 
     /**
      * @brief Default constructor initializes all values to zero.
@@ -35,10 +48,10 @@ struct InputCommand {
     /**
      * @brief Construct an input command with specific values.
      *
-     * @param seq Input sequence number
-     * @param velocityX X-axis velocity
-     * @param velocityY Y-axis velocity
-     * @param deltaTime Time delta for this frame
+     * @param seq Input sequence number for ordering
+     * @param velocityX X-axis velocity (-1 to 1, normalized)
+     * @param velocityY Y-axis velocity (-1 to 1, normalized)
+     * @param deltaTime Time delta for this frame (seconds)
      */
     InputCommand(uint32_t seq, float velocityX, float velocityY, float deltaTime)
         : sequence(seq), vx(velocityX), vy(velocityY), dt(deltaTime) {}

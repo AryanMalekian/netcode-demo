@@ -1,11 +1,17 @@
 /**
  * @file client_tests.cpp
- * @brief Basic tests for UDP client logic in netcode demo.
+ * @brief Unit tests for client-side logic and basic game mechanics.
  *
- * Tests core client functions: packet creation and simulated input velocity updates.
- * Does not test rendering or real socket communication (mock needed for that).
+ * Tests fundamental client functions including position updates, velocity calculations,
+ * and packet serialization workflows. Focuses on core mathematical operations and
+ * data handling rather than complex networking or rendering components.
  *
- * @author Aryan Malekian
+ * Coverage:
+ * - Basic physics simulation (position/velocity updates)
+ * - Packet serialization roundtrip accuracy
+ * - Mathematical correctness of movement calculations
+ *
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 23.05.2025
  */
 
@@ -13,7 +19,19 @@
 #include "netcode/common/packet.hpp"
 #include "netcode/common/prediction.hpp"
 
-static void update_position(float& x, float& y, float& vx, float& vy, float dt) {
+ /**
+  * @brief Helper function to update position based on velocity and time delta.
+  *
+  * Implements basic kinematic equation: position += velocity * time
+  * Used for testing fundamental physics calculations.
+  *
+  * @param[in,out] x X position to update
+  * @param[in,out] y Y position to update
+  * @param vx X velocity (units per second)
+  * @param vy Y velocity (units per second)
+  * @param dt Time delta (seconds)
+  */
+static void update_position(float& x, float& y, float vx, float vy, float dt) {
     x += vx * dt;
     y += vy * dt;
 }
@@ -27,7 +45,7 @@ TEST_CASE("Client: position updates correctly with velocity", "[client]") {
     REQUIRE(x == Catch::Approx(10.f));
     REQUIRE(y == Catch::Approx(-5.f));
 
-    // simulate another tick with zero velocity
+    // Simulate another tick with zero velocity
     vx = 0.f; vy = 0.f;
     update_position(x, y, vx, vy, dt);
     REQUIRE(x == Catch::Approx(10.f));
