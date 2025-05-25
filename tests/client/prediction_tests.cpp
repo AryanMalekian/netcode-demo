@@ -8,7 +8,7 @@
  *
  * Extended with edge cases, error conditions, and boundary testing.
  *
- * @author Aryan Malekian
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 22.05.2025
  */
 
@@ -38,7 +38,6 @@ TEST_CASE("predictPosition: Negative velocity and positive time", "[Prediction]"
     REQUIRE(result.second == Catch::Approx(2.0f));
 }
 
-// --- EXISTING TESTS CONTINUE ---
 
 TEST_CASE("PredictionSystem: reconcile removes acknowledged inputs and resets predicted state", "[PredictionSystem]") {
     // Start at origin

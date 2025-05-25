@@ -35,7 +35,7 @@
  *
  * This version is suitable for educational and research use in real-time multiplayer networking and latency compensation.
  *
- * @author Aryan Malekian
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 23.05.2025
  */
 

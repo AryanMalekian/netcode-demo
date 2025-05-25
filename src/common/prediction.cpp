@@ -9,7 +9,7 @@
  * See prediction.hpp for API and documentation.
  *
  * @see prediction.hpp
- * @author Aryan Malekian
+ * @author Aryan Malekian w/ use of A.I. Models
  * @date 23.05.2025
  */
 
