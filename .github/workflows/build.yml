@@ -1,22 +1,20 @@
-name: Build (CMake + vcpkg on Windows)
-
+﻿name: Build (CMake + vcpkg on Windows)
 on:
   pull_request:
 
 jobs:
   build:
     runs-on: windows-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
+      
       - name: Set up vcpkg
         shell: pwsh
         run: |
           git clone https://github.com/microsoft/vcpkg.git vcpkg
           .\vcpkg\bootstrap-vcpkg.bat
-
+      
       - name: Cache vcpkg build artifacts
         uses: actions/cache@v3
         with:
@@ -28,28 +26,57 @@ jobs:
           key: ${{ runner.os }}-vcpkg-${{ hashFiles('vcpkg.json') }}
           restore-keys: |
             ${{ runner.os }}-vcpkg-
-
+      
       - name: Install dependencies via vcpkg (manifest mode)
         shell: pwsh
         run: |
-          .\vcpkg\vcpkg.exe install --triplet x64-windows
-
+          if (!(Test-Path "vcpkg\installed\x64-windows\lib")) {
+            Write-Host "Installing vcpkg dependencies..."
+            .\vcpkg\vcpkg.exe install --triplet x64-windows
+          } else {
+            Write-Host "✅ vcpkg dependencies already installed from cache"
+          }
+      
       - name: Install Doxygen
         shell: pwsh
         run: |
           choco install doxygen.install -y
-
+      
       - name: Install CMake
         uses: lukka/get-cmake@latest
-
+      
       - name: Install Ninja
         uses: seanmiddleditch/gha-setup-ninja@v3
-
-      - name: Configure, build & test
+      
+      - name: Configure and build
         shell: pwsh
         run: |
           cmake -B build -S . -G Ninja `
             -DCMAKE_TOOLCHAIN_FILE="${{ github.workspace }}\vcpkg\scripts\buildsystems\vcpkg.cmake" `
             -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
-          ctest --test-dir build --output-on-failure || true
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-output
+          path: build/
+          retention-days: 1
+
+  test:
+    runs-on: windows-latest
+    needs: build
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: build-output
+          path: build/
+      
+      - name: Run tests
+        shell: pwsh
+        run: |
+          ctest --test-dir build --output-on-failure
