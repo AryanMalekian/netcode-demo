@@ -59,10 +59,9 @@ Non-blocking sockets håndteres forskjellig på hver plattform, og feilhåndteri
 ## Fremtidig Arbeid
 
 ### Nåværende Mangler/Svakheter
-- **Server-side lag compensation** - kun echo-server implementert
+- **Server-side lag compensation** - enkel autoritativ server implementert, men ikke avansert lag compensation
 - **Flere klienter samtidig** - støtter kun én klient
 - **Pakke-kompresjon** for båndbredde-optimalisering
-- **Delta-compression** for å redusere redundant data
 - **Adaptive prediction** basert på nettverkskvalitet
 
 ### Mulige Utvidelser
@@ -70,7 +69,6 @@ Non-blocking sockets håndteres forskjellig på hver plattform, og feilhåndteri
 - Autoritativ fysikk på server-side  
 - Nettverkssimulering med jitter og variable packet loss
 - Optimistisk kollisjonshåndtering
-- Bandwidth throttling simulering
 
 ## Eksterne Avhengigheter
 
