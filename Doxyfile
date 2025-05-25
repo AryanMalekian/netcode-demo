@@ -4,9 +4,9 @@
 # Project related configuration options
 #---------------------------------------------------------------------------
 DOXYFILE_ENCODING      = UTF-8
-PROJECT_NAME           = "Netcode Demo"
+PROJECT_NAME           = "Netcode Solution for IDATT-2104, Frivillig Prosjekt"
 PROJECT_NUMBER         = "v1.0.0"
-PROJECT_BRIEF          = "Implemented netcode demonstration w/ visual demo, presenting several features, ranging from"
+PROJECT_BRIEF          = "Implemented netcode demonstration w/ visual demo, presenting several features."
 OUTPUT_DIRECTORY       = docs/api
 CREATE_SUBDIRS         = NO
 ALLOW_UNICODE_NAMES    = NO
