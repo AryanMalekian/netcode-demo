@@ -27,25 +27,6 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-vcpkg-
       
-      - name: Cache vcpkg binary cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ github.workspace }}\vcpkg_cache
-          key: ${{ runner.os }}-vcpkg-binary-${{ hashFiles('vcpkg.json') }}
-      
-      - name: Install dependencies via vcpkg (manifest mode)
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\vcpkg_cache"
-          if (Test-Path "${{ github.workspace }}\vcpkg_cache\*.nupkg") {
-            Write-Host "✅ vcpkg binary cache found, packages will be restored quickly"
-          } else {
-            Write-Host "Installing vcpkg dependencies..."
-          }
-          .\vcpkg\vcpkg.exe install --triplet x64-windows
-        env:
-          VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}\vcpkg_cache
-      
       - name: Install Doxygen
         shell: pwsh
         run: |
