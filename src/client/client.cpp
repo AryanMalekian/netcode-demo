@@ -1,6 +1,6 @@
 ﻿/**
  * @file client.cpp
- * @brief UDP client for advanced netcode demonstration with prediction, reconciliation, and artificial network delay.
+ * @brief UDP client for advanced netcode demonstration with prediction, reconciliation, and network delay simulation.
  *
  * This interactive demo visualizes the effects of network latency and different prediction strategies for real-time multiplayer games.
  * It sends the local player's movement to a server via UDP, receives back the authoritative server state, and demonstrates:
@@ -8,8 +8,8 @@
  * Features demonstrated:
  * - Cross-platform UDP sockets (Winsock/POSIX support)
  * - **Multithreaded architecture**: Separate network thread for sending/receiving packets
- * - **Thread-safe communication**: Lock-free queues for inter-thread packet exchange
- * - **Artificial network delay simulation** (both outbound and inbound)
+ * - **Thread-safe communication**: Condition variable queues for inter-thread packet exchange
+ * - **Network delay simulation** with configurable latency presets (5-450ms range)
  * - **Latency preset selection**: Choose from predefined network conditions for demonstration
  * - Use of a compact, serializable Packet struct for network communication
  * - **Naive prediction**: simple linear extrapolation for client-side prediction
@@ -21,6 +21,7 @@
  * - **Trail visualization**: Each dot leaves a faded trail to show movement history and delay effects
  * - **Interactive UI**: Press [C] to clear all trails. Arrow keys move the local object. Number keys select latency presets.
  * - **Robust error handling**: Comprehensive validation and error reporting
+ * - **Packet loss tracking**: Real packet loss detection via sequence gap analysis
  *
  * NEW CONTROLS:
  *   - 1-5: Select latency preset
@@ -35,10 +36,10 @@
  *
  * Threading model:
  *   - Main thread: Handles rendering, input, and game logic at 60 FPS
- *   - Network thread: Manages all UDP communication independently
+ *   - Network thread: Manages all UDP communication independently with condition variables
  *   - Communication via thread-safe queues ensures no blocking between threads
- * 
- * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models 
+ *
+ * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models
  * @date 23.05.2025
  */
 
@@ -70,6 +71,7 @@ typedef int socket_t;
 #include <atomic>
 #include <mutex>
 #include <queue>
+#include <condition_variable>
 #include <algorithm>
 #include "netcode/common/packet.hpp"
 #include "netcode/common/prediction.hpp"
@@ -129,24 +131,26 @@ public:
 };
 
 // -----------------------------------------------------------------------------
-// Thread-safe packet queue for inter-thread communication
+// Thread-safe packet queue with condition variables for inter-thread communication
 
 /**
  * @class ThreadSafeQueue
- * @brief A simple thread-safe queue for passing packets between threads.
+ * @brief A thread-safe queue with condition variables for efficient packet passing between threads.
  */
 template<typename T>
 class ThreadSafeQueue {
 private:
     mutable std::mutex mutex_;
+    std::condition_variable cv_;
     std::queue<T> queue_;
-    size_t maxSize_ = 1000;  
+    size_t maxSize_ = 1000;
 
 public:
     void push(const T& item) {
         std::lock_guard<std::mutex> lock(mutex_);
         if (queue_.size() < maxSize_) {
             queue_.push(item);
+            cv_.notify_one(); // Wake waiting thread
         }
     }
 
@@ -156,6 +160,16 @@ public:
         item = queue_.front();
         queue_.pop();
         return true;
+    }
+
+    bool waitAndPop(T& item, std::chrono::milliseconds timeout) {
+        std::unique_lock<std::mutex> lock(mutex_);
+        if (cv_.wait_for(lock, timeout, [this] { return !queue_.empty(); })) {
+            item = queue_.front();
+            queue_.pop();
+            return true;
+        }
+        return false;
     }
 
     size_t size() const {
@@ -242,7 +256,7 @@ std::string getCurrentTimestamp() {
 }
 
 // -----------------------------------------------------------------------------
-// Artificial network delay simulation utilities
+// Network delay simulation utilities
 
 /**
  * @brief Represents a packet scheduled for delayed send/receive to simulate network lag.
@@ -259,13 +273,13 @@ struct DelayedPacket {
 
 /**
  * @class DelaySimulator
- * @brief Buffers packets for artificial network delay and releases them at the appropriate time.
+ * @brief Buffers packets for network delay simulation and releases them at the appropriate time.
  */
 class DelaySimulator {
     std::deque<DelayedPacket> queue;
     std::mt19937 rng;
     mutable std::mutex mutex_;
-    LatencyPresetManager& presetManager; 
+    LatencyPresetManager& presetManager;
 
 public:
     DelaySimulator(LatencyPresetManager& manager) : rng(std::random_device{}()), presetManager(manager) {}
@@ -279,7 +293,7 @@ public:
      */
     void send(const char* buf, size_t len, sockaddr_in addr, int addrlen) {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto delayRange = presetManager.getCurrentDelayRange(); 
+        auto delayRange = presetManager.getCurrentDelayRange();
         std::uniform_int_distribution<int> dist(delayRange.first, delayRange.second);
         int delay = dist(rng);
         auto release = std::chrono::steady_clock::now() + std::chrono::milliseconds(delay);
@@ -374,7 +388,25 @@ public:
 };
 
 // -----------------------------------------------------------------------------
-// Network thread function
+// Network statistics and thread function
+
+/**
+ * @brief Network statistics structure for thread-safe communication
+ */
+struct NetworkStats {
+    std::atomic<int> packetsSent{ 0 };
+    std::atomic<int> packetsReceived{ 0 };
+    std::atomic<int> sendErrors{ 0 };
+    std::atomic<int> invalidPacketsReceived{ 0 };
+    std::atomic<int> packetsLost{ 0 };  // Actual packet loss count
+    std::atomic<float> avgRTT{ 100.0f };
+    std::chrono::steady_clock::time_point lastServerPacketTime;
+    std::mutex timeMutex;
+
+    // Sequence tracking for packet loss detection
+    uint32_t expectedServerSeq{ 1 };
+    std::mutex seqMutex;
+};
 
 /**
  * @brief Network thread that handles all UDP communication.
@@ -386,22 +418,12 @@ public:
  * @param stats Shared statistics structure
  * @param presetManager Latency preset manager for dynamic delay control
  */
-struct NetworkStats {
-    std::atomic<int> packetsSent{ 0 };
-    std::atomic<int> packetsReceived{ 0 };
-    std::atomic<int> sendErrors{ 0 };
-    std::atomic<int> invalidPacketsReceived{ 0 };
-    std::atomic<float> avgRTT{ 100.0f };
-    std::chrono::steady_clock::time_point lastServerPacketTime;
-    std::mutex timeMutex;
-};
-
 void networkThread(socket_t sock, sockaddr_in servAddr,
     ThreadSafeQueue<Packet>& outgoingQueue,
     ThreadSafeQueue<Packet>& incomingQueue,
     std::atomic<bool>& running,
     NetworkStats& stats,
-    LatencyPresetManager& presetManager) { 
+    LatencyPresetManager& presetManager) {
 
     char buf[Packet::size()];
     sockaddr_in fromAddr;
@@ -416,13 +438,14 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
 
     auto lastSendTime = std::chrono::steady_clock::now();
 
-    std::cout << "[Network Thread] Started successfully" << std::endl;
+    std::cout << "[Network Thread] Started successfully with condition variables" << std::endl;
 
     while (running) {
         auto now = std::chrono::steady_clock::now();
 
+        // Wait for outgoing packets with timeout
         Packet outPacket;
-        if (outgoingQueue.pop(outPacket)) {
+        if (outgoingQueue.waitAndPop(outPacket, std::chrono::milliseconds(10))) {
             outPacket.serialize(buf);
             outgoingDelay.send(buf, Packet::size(), servAddr, sizeof(servAddr));
             lastSendTime = now;
@@ -460,6 +483,20 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
             receivedPacket.deserialize(incomingBuf);
 
             if (receivedPacket.isValid()) {
+                // Packet loss detection via sequence gap analysis
+                {
+                    std::lock_guard<std::mutex> seqLock(stats.seqMutex);
+                    if (receivedPacket.seq > stats.expectedServerSeq) {
+                        // Gap detected - packets were lost
+                        int lostCount = receivedPacket.seq - stats.expectedServerSeq;
+                        stats.packetsLost += lostCount;
+                        std::cout << "[Network Thread] Detected " << lostCount
+                            << " lost packets (gap: " << stats.expectedServerSeq
+                            << " to " << receivedPacket.seq << ")" << std::endl;
+                    }
+                    stats.expectedServerSeq = receivedPacket.seq + 1;
+                }
+
                 incomingQueue.push(receivedPacket);
                 stats.packetsReceived++;
 
@@ -477,7 +514,7 @@ void networkThread(socket_t sock, sockaddr_in servAddr,
             }
         }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // No sleep needed - condition variable handles efficient waiting
     }
 
     std::cout << "[Network Thread] Shutting down..." << std::endl;
@@ -548,9 +585,9 @@ int main() {
     ThreadSafeQueue<Packet> incomingPackets;
     std::atomic<bool> networkThreadRunning{ true };
     NetworkStats networkStats;
-    LatencyPresetManager presetManager; // Latency preset manager
+    LatencyPresetManager presetManager;
 
-    // (5) Start network thread - Pass preset manager
+    // (5) Start network thread
     std::thread netThread(networkThread, sock, servAddr,
         std::ref(outgoingPackets), std::ref(incomingPackets),
         std::ref(networkThreadRunning), std::ref(networkStats), std::ref(presetManager));
@@ -577,7 +614,7 @@ int main() {
     auto prevRecvTime = std::chrono::steady_clock::now();
     auto nextRecvTime = std::chrono::steady_clock::now();
 
-    // (9) SFML window and visual setup (five sections for comparison) - Better spacing and readability
+    // (9) SFML window and visual setup (five sections for comparison)
     sf::RenderWindow window(sf::VideoMode(1800, 1000), "Advanced Netcode Demo - Multithreaded");
     window.setFramerateLimit(60);
 
@@ -630,7 +667,6 @@ int main() {
     #endif
     };
 
-    
     for (const auto& path : fontPaths) {
         if (font.loadFromFile(path)) {
             fontLoaded = true;
@@ -639,7 +675,6 @@ int main() {
         }
     }
 
-    
     if (!fontLoaded) {
         const char* fallbackFonts[] = { "arial.ttf", "fonts/arial.ttf", "assets/arial.ttf" };
         for (const auto& path : fallbackFonts) {
@@ -655,7 +690,6 @@ int main() {
         std::cout << "[" << getCurrentTimestamp() << "] Warning: Could not load any font file - text will use default font" << std::endl;
     }
 
-    
     sf::Text sectionLabels[5];
     const char* labelTexts[] = {
         "Local Input\n(Immediate Response)",
@@ -672,7 +706,6 @@ int main() {
         sectionLabels[i].setPosition(30 + i * sectionWidth, sectionY - 60);
     }
 
-    
     sf::Text metricsText("", font, 16);
     metricsText.setPosition(20, 20);
     metricsText.setFillColor(sf::Color::White);
@@ -682,16 +715,13 @@ int main() {
     instructionsText.setFillColor(sf::Color(220, 220, 220));
     instructionsText.setString("Arrow Keys: move | C: clear trails | 1-5: Select latency preset | Multithreaded networking demonstration");
 
-    
     sf::Text statusText("", font, 18);
     statusText.setPosition(20, 140);
 
-    
     sf::Text threadingText("", font, 16);
     threadingText.setPosition(20, 110);
     threadingText.setFillColor(sf::Color::Cyan);
 
-    
     sf::Text latencyPresetText("", font, 18);
     latencyPresetText.setPosition(20, 170);
 
@@ -700,7 +730,7 @@ int main() {
     const float boxWidth = 280.f;
     const float boxHeight = 35.f;
     const float boxSpacing = 20.f;
-    const float presetStartY = 850.f; 
+    const float presetStartY = 850.f;
 
     for (size_t i = 0; i < presetManager.presets.size(); ++i) {
         sf::RectangleShape box(sf::Vector2f(boxWidth, boxHeight));
@@ -762,7 +792,7 @@ int main() {
         }
         auto timeSinceLastPacket = std::chrono::duration<float>(now - lastServerTime).count();
         bool wasConnected = serverConnected;
-        serverConnected = (timeSinceLastPacket < 10.0f); 
+        serverConnected = (timeSinceLastPacket < 10.0f);
 
         if (wasConnected != serverConnected) {
             if (serverConnected) {
@@ -784,9 +814,9 @@ int main() {
         auto timeSinceLastSend = std::chrono::duration<float>(now - lastSendTime).count();
         if (timeSinceLastSend >= 0.033f) {  // ~30Hz send rate
 
-            Packet inputPacket{ seq++, inputX, inputY, 0, 0 }; 
+            Packet inputPacket{ seq++, inputX, inputY, 0, 0 };
 
-            if (inputPacket.seq > 0) { 
+            if (inputPacket.seq > 0) {
                 outgoingPackets.push(inputPacket);
                 lastSendTime = now;
             }
@@ -803,7 +833,7 @@ int main() {
         y = std::clamp(y, 30.f, sectionHeight - 30.f);
 
         // f) ADVANCED PREDICTION: Apply input to prediction system
-        InputCommand input(seq - 1, inputX, inputY, frameDt); 
+        InputCommand input(seq - 1, inputX, inputY, frameDt);
         advancedPrediction.applyInput(input);
         advancedPrediction.update(frameDt);
         auto advPredPos = advancedPrediction.getPredictedPosition();
@@ -863,8 +893,11 @@ int main() {
 
         int sent = networkStats.packetsSent.load();
         int received = networkStats.packetsReceived.load();
-        metrics << "Packet Loss: " <<
-            ((sent > 0) ? (100.0f * (1.0f - (float)received / sent)) : 0.0f) << "% | ";
+        int lost = networkStats.packetsLost.load();
+
+        metrics << "Packets Lost: " << lost << " packets | ";
+        metrics << "Connection Quality: " <<
+            ((sent > 0) ? (100.0f * (float)received / sent) : 0.0f) << "% response rate | ";
         metrics << "Unacked Inputs: " << advancedPrediction.getUnackedInputCount() << " | ";
         metrics << "Network Queue: " << outgoingPackets.size() << " out / " << incomingPackets.size() << " in";
         metricsText.setString(metrics.str());
@@ -882,7 +915,7 @@ int main() {
         statusText.setString(status.str());
 
         std::stringstream threadInfo;
-        threadInfo << "Threading: Main thread (rendering @ " << (int)(1.0f / frameDt) << " FPS) | Network thread (active)";
+        threadInfo << "Threading: Main thread (rendering @ " << (int)(1.0f / frameDt) << " FPS) | Network thread (event-driven)";
         threadingText.setString(threadInfo.str());
 
         const auto& currentPreset = presetManager.getCurrentPreset();
@@ -961,14 +994,21 @@ int main() {
     std::cout << "Final statistics:" << std::endl;
     std::cout << "  Packets sent: " << networkStats.packetsSent.load() << std::endl;
     std::cout << "  Packets received: " << networkStats.packetsReceived.load() << std::endl;
+    std::cout << "  Packets lost (sequence gaps): " << networkStats.packetsLost.load() << std::endl;
     std::cout << "  Invalid packets: " << networkStats.invalidPacketsReceived.load() << std::endl;
     std::cout << "  Send errors: " << networkStats.sendErrors.load() << std::endl;
 
     int finalSent = networkStats.packetsSent.load();
     int finalReceived = networkStats.packetsReceived.load();
+    int finalLost = networkStats.packetsLost.load();
+
     if (finalSent > 0) {
-        std::cout << "  Packet loss rate: " << std::setprecision(2) <<
-            (100.0f * (1.0f - (float)finalReceived / finalSent)) << "%" << std::endl;
+        std::cout << "  Connection response rate: " << std::setprecision(2) <<
+            (100.0f * (float)finalReceived / finalSent) << "%" << std::endl;
+    }
+    if (finalReceived > 0) {
+        std::cout << "  Actual packet loss rate: " << std::setprecision(2) <<
+            (100.0f * (float)finalLost / (finalReceived + finalLost)) << "%" << std::endl;
     }
 
 #ifdef _WIN32
