@@ -11,8 +11,12 @@ add_executable(netcode-server ${SERVER_SOURCES})
 target_link_libraries(netcode-server
     PRIVATE
         netcode::common
-        ws2_32
 )
+
+# Platform-specific libraries
+if(WIN32)
+    target_link_libraries(netcode-server PRIVATE ws2_32)
+endif()
 
 # Include directories
 target_include_directories(netcode-server
@@ -25,7 +29,6 @@ target_compile_features(netcode-server
     PRIVATE
         cxx_std_17
 )
-
 
 # Set target properties
 set_target_properties(netcode-server PROPERTIES

@@ -582,7 +582,6 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(1800, 1000), "Advanced Netcode Demo - Multithreaded");
     window.setFramerateLimit(60);
 
-    // Section layout - Better spacing
     const float sectionWidth = 340.f;
     const float sectionHeight = 550.f;
     const float sectionY = 280.f;
@@ -593,7 +592,6 @@ int main() {
     sf::CircleShape advPredictedDot(dotRadius);   advPredictedDot.setFillColor(sf::Color::Magenta);
     sf::CircleShape interpDot(dotRadius);         interpDot.setFillColor(sf::Color(255, 165, 0));
 
-    // Section backgrounds (5 sections now) - Better spacing
     sf::RectangleShape sections[5];
     for (int i = 0; i < 5; ++i) {
         sections[i].setSize({ sectionWidth - 20, sectionHeight });
@@ -603,23 +601,37 @@ int main() {
         sections[i].setOutlineColor(sf::Color(120, 120, 120));
     }
 
-    // Movement trails
     Trail localTrail(sf::Color::Green);
     Trail remoteTrail(sf::Color::Red);
     Trail naiveTrail(sf::Color::Blue);
     Trail advancedTrail(sf::Color::Magenta);
     Trail interpTrail(sf::Color(255, 165, 0));
 
-    // Load font for UI
     sf::Font font;
     bool fontLoaded = false;
     const char* fontPaths[] = {
+    #ifdef _WIN32
         "C:/Windows/Fonts/arial.ttf",
         "C:/Windows/Fonts/Arial.ttf",
         "C:/Windows/Fonts/calibri.ttf",
-        "arial.ttf",
-        "fonts/arial.ttf"
+        "C:/Windows/Fonts/verdana.ttf",
+        "C:/Windows/Fonts/tahoma.ttf"
+    #elif __APPLE__
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/Library/Fonts/Arial.ttf",
+        "/System/Library/Fonts/Avenir.ttc",
+        "/System/Library/Fonts/Verdana.ttf",
+        "/System/Library/Fonts/Geneva.ttf"
+    #else
+        "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+        "/usr/share/fonts/TTF/arial.ttf",
+        "/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf"
+    #endif
     };
+
+    
     for (const auto& path : fontPaths) {
         if (font.loadFromFile(path)) {
             fontLoaded = true;
@@ -627,11 +639,24 @@ int main() {
             break;
         }
     }
+
+    
     if (!fontLoaded) {
-        std::cout << "[" << getCurrentTimestamp() << "] Warning: Could not load any font file" << std::endl;
+        const char* fallbackFonts[] = { "arial.ttf", "fonts/arial.ttf", "assets/arial.ttf" };
+        for (const auto& path : fallbackFonts) {
+            if (font.loadFromFile(path)) {
+                fontLoaded = true;
+                std::cout << "[" << getCurrentTimestamp() << "] Fallback font loaded: " << path << std::endl;
+                break;
+            }
+        }
     }
 
-    // Section labels - Updated to reflect server authority
+    if (!fontLoaded) {
+        std::cout << "[" << getCurrentTimestamp() << "] Warning: Could not load any font file - text will use default font" << std::endl;
+    }
+
+    
     sf::Text sectionLabels[5];
     const char* labelTexts[] = {
         "Local Input\n(Immediate Response)",
@@ -648,7 +673,7 @@ int main() {
         sectionLabels[i].setPosition(30 + i * sectionWidth, sectionY - 60);
     }
 
-    // Metrics and instructions - Larger fonts and better spacing
+    
     sf::Text metricsText("", font, 16);
     metricsText.setPosition(20, 20);
     metricsText.setFillColor(sf::Color::White);
@@ -658,29 +683,27 @@ int main() {
     instructionsText.setFillColor(sf::Color(220, 220, 220));
     instructionsText.setString("Arrow Keys: move | C: clear trails | 1-5: Select latency preset | Multithreaded networking demonstration");
 
-    // Connection status text - Larger font
+    
     sf::Text statusText("", font, 18);
     statusText.setPosition(20, 140);
 
-    // Threading info text - Larger font
+    
     sf::Text threadingText("", font, 16);
     threadingText.setPosition(20, 110);
     threadingText.setFillColor(sf::Color::Cyan);
 
-    // Latency preset display - Larger font and better positioning
+    
     sf::Text latencyPresetText("", font, 18);
     latencyPresetText.setPosition(20, 170);
 
-    // Preset selection boxes (visual indicators) - Moved to bottom area to avoid overlap
     std::vector<sf::RectangleShape> presetBoxes;
     std::vector<sf::Text> presetLabels;
     const float boxWidth = 280.f;
     const float boxHeight = 35.f;
     const float boxSpacing = 20.f;
-    const float presetStartY = 850.f; // Moved to bottom area to avoid overlap
+    const float presetStartY = 850.f; 
 
     for (size_t i = 0; i < presetManager.presets.size(); ++i) {
-        // Create preset indicator box - Better horizontal layout for 5 presets
         sf::RectangleShape box(sf::Vector2f(boxWidth, boxHeight));
         box.setPosition(20 + i * (boxWidth + boxSpacing), presetStartY);
         box.setFillColor(sf::Color(45, 45, 45));
@@ -688,7 +711,6 @@ int main() {
         box.setOutlineColor(presetManager.presets[i].displayColor);
         presetBoxes.push_back(box);
 
-        // Create preset label - Better positioning for horizontal layout
         sf::Text label("", font, 14);
         label.setString(std::to_string(i + 1) + ": " + presetManager.presets[i].name);
         label.setPosition(30 + i * (boxWidth + boxSpacing), presetStartY + 8);
@@ -715,7 +737,6 @@ int main() {
                 window.close();
             if (event.type == sf::Event::KeyPressed) {
                 if (event.key.code == sf::Keyboard::C) {
-                    // Clear all movement trails
                     localTrail.clear();
                     remoteTrail.clear();
                     naiveTrail.clear();
@@ -723,7 +744,6 @@ int main() {
                     interpTrail.clear();
                     std::cout << "[" << getCurrentTimestamp() << "] Trails cleared by user" << std::endl;
                 }
-                // Preset selection with number keys (updated for 5 presets)
                 else if (event.key.code >= sf::Keyboard::Num1 && event.key.code <= sf::Keyboard::Num5) {
                     int presetIndex = event.key.code - sf::Keyboard::Num1;
                     if (presetIndex < static_cast<int>(presetManager.presets.size())) {
@@ -743,7 +763,7 @@ int main() {
         }
         auto timeSinceLastPacket = std::chrono::duration<float>(now - lastServerTime).count();
         bool wasConnected = serverConnected;
-        serverConnected = (timeSinceLastPacket < 10.0f); // Increased timeout for high latency presets
+        serverConnected = (timeSinceLastPacket < 10.0f); 
 
         if (wasConnected != serverConnected) {
             if (serverConnected) {
@@ -764,11 +784,10 @@ int main() {
         // d) Send RAW INPUT to server (server decides position, not client)
         auto timeSinceLastSend = std::chrono::duration<float>(now - lastSendTime).count();
         if (timeSinceLastSend >= 0.033f) {  // ~30Hz send rate
-            // Send input commands to server, not position
-            Packet inputPacket{ seq++, inputX, inputY, 0, 0 }; // Use x,y fields for input, vx,vy unused for now
 
-            // Validate packet before sending
-            if (inputPacket.seq > 0) { // Simple validation
+            Packet inputPacket{ seq++, inputX, inputY, 0, 0 }; 
+
+            if (inputPacket.seq > 0) { 
                 outgoingPackets.push(inputPacket);
                 lastSendTime = now;
             }
@@ -781,12 +800,11 @@ int main() {
         x += localVx * frameDt;
         y += localVy * frameDt;
 
-        // Keep local position within bounds
         x = std::clamp(x, 30.f, sectionWidth - 30.f);
         y = std::clamp(y, 30.f, sectionHeight - 30.f);
 
         // f) ADVANCED PREDICTION: Apply input to prediction system
-        InputCommand input(seq - 1, inputX, inputY, frameDt); // Use last sent sequence
+        InputCommand input(seq - 1, inputX, inputY, frameDt); 
         advancedPrediction.applyInput(input);
         advancedPrediction.update(frameDt);
         auto advPredPos = advancedPrediction.getPredictedPosition();
@@ -801,8 +819,6 @@ int main() {
             nextRecvTime = now;
             hasPrev = true;
 
-            // Server packet contains AUTHORITATIVE position - this is the truth!
-            // Advanced prediction system reconciles with this authoritative state
             advancedPrediction.reconcileWithServer(nextPacket);
         }
 
@@ -866,12 +882,10 @@ int main() {
         }
         statusText.setString(status.str());
 
-        // Update threading info
         std::stringstream threadInfo;
         threadInfo << "Threading: Main thread (rendering @ " << (int)(1.0f / frameDt) << " FPS) | Network thread (active)";
         threadingText.setString(threadInfo.str());
 
-        // Update latency preset display with current preset
         const auto& currentPreset = presetManager.getCurrentPreset();
         std::stringstream latencyInfo;
         latencyInfo << "Current Network Profile: " << currentPreset.name << " | ";
@@ -913,9 +927,7 @@ int main() {
             window.draw(latencyPresetText);
             window.draw(instructionsText);
 
-            // Draw preset selection boxes - Better highlighting
             for (size_t i = 0; i < presetBoxes.size(); ++i) {
-                // Highlight current preset
                 if (static_cast<int>(i) == presetManager.currentPresetIndex.load()) {
                     presetBoxes[i].setFillColor(sf::Color(80, 80, 80));
                     presetBoxes[i].setOutlineThickness(3);
@@ -929,7 +941,6 @@ int main() {
             }
         }
 
-        // Draw vertical dividers - Adjusted for new spacing
         for (int i = 1; i < 5; ++i) {
             sf::VertexArray line(sf::Lines, 2);
             line[0].position = sf::Vector2f(i * sectionWidth + 10, sectionY);
@@ -945,7 +956,6 @@ int main() {
     // (11) Cleanup
     std::cout << "[" << getCurrentTimestamp() << "] Shutting down client..." << std::endl;
 
-    // Signal network thread to stop
     networkThreadRunning = false;
     netThread.join();
 
