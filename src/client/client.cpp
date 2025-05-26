@@ -210,7 +210,6 @@ void printSocketError(const char* operation) {
     case ETIMEDOUT:
         std::cerr << " - Connection timed out";
         break;
-    case EWOULDBLOCK:
     case EAGAIN:
         return;
     default:

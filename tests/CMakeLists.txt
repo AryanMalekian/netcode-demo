@@ -36,11 +36,12 @@ target_include_directories(netcode_tests PRIVATE
     ${CMAKE_SOURCE_DIR}/src
 )
 
-# Link libraries
-target_link_libraries(netcode_tests PRIVATE 
-    Catch2::Catch2WithMain 
-    ws2_32
-)
+# Link libraries (Catch2 always, ws2_32 only on Windows)
+target_link_libraries(netcode_tests PRIVATE Catch2::Catch2WithMain)
+
+if(WIN32)
+    target_link_libraries(netcode_tests PRIVATE ws2_32)
+endif()
 
 # Set runtime output directory to help VS find the tests
 set_target_properties(netcode_tests PROPERTIES
