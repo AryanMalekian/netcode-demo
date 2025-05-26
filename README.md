@@ -16,10 +16,11 @@ Prosjektet sammenligner fem forskjellige tilnærminger side-om-side:
 - **Interpolation** (oransje) - jevn mellom server-oppdateringer
 
 **MERK!:** Arkitekturale beslutninger, designvalg, prioriteringer og overordnet implementasjonsstrategi er tatt av forfatteren. Den detaljerte kodeimplementasjonen er utviklet i samarbeid med AI-modeller (Claude og ChatGPT) basert på forfatterens spesifikasjoner og krav.
+
 ## Implementert Funksjonalitet
 
 ### Kjerneteknikker
-- **Dual-threaded architecture** med Producer-Consumer pattern
+- **3-thread pipeline architecture** med Producer-Consumer pattern
 - **Thread-safe message passing** via `ThreadSafeQueue<Packet>` mellom tråder  
 - **Client-side prediction** med input-buffering og rollback
 - **Server reconciliation** for å korrigere feilpredictions
@@ -222,13 +223,20 @@ src/                      # Implementasjoner
 tests/                    # Test-kode organisert etter komponent
 ```
 
-### Dual-Threaded Design
-- **Hovedtråd**: Håndterer rendering, input og game logic (60 FPS)
-- **Dedikert nettverkstråd**: Behandler all UDP-kommunikasjon asynkront
-- **Thread-safe message queues**: Producer-Consumer pattern med `ThreadSafeQueue<Packet>`
-- **Artificial delay simulation**: Separate DelaySimulator instances per tråd
+### 3-Thread Pipeline Design
+- **Main thread**: Håndterer rendering, input og game logic (60 FPS)
+- **Delay Simulation thread**: Behandler artificial network delay, jitter og packet loss simulation
+- **Network I/O thread**: Ren UDP send/receive operasjoner
+- **Thread-safe pipeline**: Producer-Consumer chains med `ThreadSafeQueue<Packet>`
+- **Condition variables**: Effektiv thread-kommunikasjon uten polling
 
-Kommunikasjon mellom tråder skjer via thread-safe køer med mutex-beskyttelse og size-begrensninger for å unngå minneproblemer.
+Pipeline dataflow:
+```
+Main Thread → Delay Sim Thread → Network I/O Thread → UDP
+UDP → Network I/O Thread → Delay Sim Thread → Main Thread
+```
+
+Kommunikasjon mellom tråder skjer via thread-safe køer med condition variables for effektiv event-driven processing, og size-begrensninger for å unngå minneproblemer.
 
 ### Prediction Algorithm
 Implementerer moderne netcode-prinsipper:
