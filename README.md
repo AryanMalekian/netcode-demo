@@ -19,19 +19,26 @@ Prosjektet sammenligner fem forskjellige tilnærminger side-om-side:
 
 ## Implementert Funksjonalitet
 
-### Kjerneteknikker
-- **3-thread pipeline architecture** med Producer-Consumer pattern
-- **Thread-safe message passing** via `ThreadSafeQueue<Packet>` mellom tråder  
-- **Client-side prediction** med input-buffering og rollback
+### Kjerneteknikker (Netcode)
+- **Advanced client-side prediction** med input-buffering og rollback
 - **Server reconciliation** for å korrigere feilpredictions
-- **Artificial network delay simulation** for realistisk testing (80-180ms randomized)
 - **Linear interpolation** mellom server states
+- **Naive prediction** med linear extrapolation for sammenligning
+- **Server authoritative state** håndtering
+- **Packet loss detection** via sequence gap analysis
+
+### Implementasjon og Infrastruktur
+- **3-thread pipeline architecture** med Producer-Consumer pattern
+- **Thread-safe message passing** via `ThreadSafeQueue<Packet>` mellom tråder
+- **Configurable network latency simulation** med preset nivåer (5-450ms range)
+- **Cross-platform UDP sockets** (Winsock/BSD)
+- **Condition variables** for effektiv thread-kommunikasjon
 
 ### Visualisering og Metrics
 - **Realtime sammenligning** av fem prediction-metoder
-- **Live performance metrics** (FPS, RTT, packet loss, buffer size)
+- **Live performance metrics** (FPS, RTT, packet loss detection, buffer size)
 - **Movement tracing** for å visualisere forsinkelse
-- **Cross-platform UDP sockets** (Windows/Unix)
+- **Interactive latency presets** (1-5 keys for 5ms-450ms range)
 
 ### Cross-Platform Implementasjon
 Prosjektet bruker kompiler-betingede direktiver for å støtte forskjellige plattformer:
@@ -225,7 +232,7 @@ tests/                    # Test-kode organisert etter komponent
 
 ### 3-Thread Pipeline Design
 - **Main thread**: Håndterer rendering, input og game logic (60 FPS)
-- **Delay Simulation thread**: Behandler artificial network delay, jitter og packet loss simulation
+- **Delay Simulation thread**: Behandler artificial network latency simulation
 - **Network I/O thread**: Ren UDP send/receive operasjoner
 - **Thread-safe pipeline**: Producer-Consumer chains med `ThreadSafeQueue<Packet>`
 - **Condition variables**: Effektiv thread-kommunikasjon uten polling
