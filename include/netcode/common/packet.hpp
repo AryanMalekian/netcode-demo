@@ -18,9 +18,14 @@
 #pragma once
 
 #include <cstdint>
-#include <winsock2.h>
 #include <cstring>
 #include <cmath>
+
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <arpa/inet.h>  
+#endif
 
  /**
   * @struct Packet
@@ -84,19 +89,19 @@ struct Packet {
             return false;
         }
 
-        // Reasonable position bounds 
+        
         constexpr float MAX_POSITION = 10000.0f;
         if (std::abs(x) > MAX_POSITION || std::abs(y) > MAX_POSITION) {
             return false;
         }
 
-        // Reasonable velocity bounds
+        
         constexpr float MAX_VELOCITY = 1000.0f;
         if (std::abs(vx) > MAX_VELOCITY || std::abs(vy) > MAX_VELOCITY) {
             return false;
         }
 
-        // Sequence number should not be zero
+        
         if (seq == 0) {
             return false;
         }
