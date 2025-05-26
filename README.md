@@ -127,6 +127,25 @@ cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="~/vcpkg/scripts/buildsystems/vcpkg.c
 cmake --build build --config Release
 ```
 
+### Mac-spesifikke instruksjoner
+
+```bash
+# Installer vcpkg på Mac
+git clone https://github.com/Microsoft/vcpkg.git ~/vcpkg
+~/vcpkg/bootstrap-vcpkg.sh
+
+# Installer dependencies
+cd netcode-demo
+~/vcpkg/vcpkg install
+
+# Bygg med CMake
+cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE="~/vcpkg/scripts/buildsystems/vcpkg.cmake"
+cmake --build build --config Release
+
+# Kjør (terminaler må kanskje ha nettverkstilgang)
+./build/bin/netcode-server
+./build/bin/netcode-client
+
 vcpkg håndterer alle dependencies som deklarert i vcpkg.json.
 
 ## Instruksjoner for Bruk
