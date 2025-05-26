@@ -9,7 +9,7 @@
  * See interpolation.hpp for API documentation.
  *
  * @see interpolation.hpp
- * @author Aryan Malekian w/ use of A.I. Models
+ * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models 
  * @date 21.05.2025
  */
 
