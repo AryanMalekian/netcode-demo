@@ -11,15 +11,15 @@
  *   - Packet validation for security and robustness
  *   - Negative test cases for invalid data
  *
- * @author Aryan Malekian w/ use of A.I. Models
+ * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models 
  * @date 22.05.2025
  */
 
 #include <catch2/catch_all.hpp>
 #include "netcode/common/packet.hpp"
-#include <cstring>  // For std::memcmp
-#include <cmath>    // For NaN and infinity
-#include <limits>   // For numeric limits
+#include <cstring>  
+#include <cmath>    
+#include <limits>   
 
 TEST_CASE("Packet serialization/deserialization - roundtrip", "[Packet]") {
     Packet original;

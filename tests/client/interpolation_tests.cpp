@@ -12,7 +12,7 @@
  * - Negative direction movement handling
  * - Mathematical precision validation
  *
- * @author Aryan Malekian w/ use of A.I. Models
+ * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models 
  * @date 22.05.2025
  */
 

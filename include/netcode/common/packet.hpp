@@ -11,7 +11,7 @@
  *   - Use Packet::deserialize() after receiving from the network.
  *   - Use Packet::isValid() to validate packet contents after deserialization.
  *
- * @author Aryan Malekian w/ use of A.I. Models
+ * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models 
  * @date 20.05.2025
  */
 

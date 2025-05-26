@@ -26,7 +26,7 @@
  *
  * This code is portable and will compile and run on both Windows and Unix-like systems.
  *
- * @author Aryan Malekian w/ use of A.I. Models
+ * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models
  * @date 20.05.2025
  */
 

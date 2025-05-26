@@ -11,7 +11,7 @@
  *   - Use interpolation factor t based on time elapsed since packets
  *   - Combine with prediction for comprehensive lag compensation
  *
- * @author Aryan Malekian w/ use of A.I. Models
+ * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models 
  * @date 21.05.2025
  */
 

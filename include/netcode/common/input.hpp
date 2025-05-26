@@ -12,7 +12,7 @@
  *   - Replay buffered commands during reconciliation
  *   - Use sequence numbers for ordering and acknowledgment
  *
- * @author Aryan Malekian w/ use of A.I. Models
+ * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models 
  * @date 23.05.2025
  */
 

@@ -14,7 +14,7 @@
  * - Error handling and validation scenarios
  * - Performance metrics calculations
  *
- * @author Aryan Malekian w/ use of A.I. Models
+ * @author Aryan Malekian & Jonathan Skomsøy Hübertz,  w/ use of A.I. Models 
  * @date 24.05.2025
  */
 

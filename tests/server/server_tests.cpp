@@ -23,7 +23,6 @@ TEST_CASE("Server: packet echo simulation", "[server]") {
     char buf[Packet::size()];
     send_pkt.serialize(buf);
 
-    // Simulate receiving the same packet buffer on server
     Packet recv_pkt;
     recv_pkt.deserialize(buf);
 
